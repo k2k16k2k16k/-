@@ -72,6 +72,7 @@
     <a class="nav-link" href="../index.html">🏠 <span>ホーム</span></a>
     <a class="nav-link" href="gcode.html">📝 <span>Gコード生成</span></a>
     <a class="nav-link" href="compound.html">🔗 <span>複合加工</span></a>
+    <a class="nav-link" href="quick.html">⚡ <span>寸法入力補助</span></a>
     <a class="nav-link" href="tools.html">🔧 <span>工具登録</span></a>
     <a class="nav-link" href="log.html">📋 <span>加工実績</span></a>
     <a class="nav-link" href="calc.html">🧮 <span>計算ツール</span></a>
@@ -82,6 +83,116 @@
 </nav>
 
 <!-- ステップ表示 -->
+
+<!-- DXF保存ルール＆横穴表記ガイド -->
+<div id="dxf-guide" style="margin:0;border-bottom:1px solid var(--border)">
+  <div style="background:var(--bg1);padding:10px 20px;display:flex;align-items:center;gap:10px;cursor:pointer" onclick="toggleGuide()">
+    <span style="font-size:13px;font-weight:700;color:var(--accent)">📐 DXF保存ルール &amp; 図面表記ガイド</span>
+    <span style="font-size:11px;color:var(--text2)">— 初回は必ずご確認ください</span>
+    <span id="guide-toggle-icon" style="margin-left:auto;font-size:12px;color:var(--text3)">▼ 開く</span>
+  </div>
+  <div id="guide-body" style="display:none;padding:16px 20px;background:var(--bg2);border-top:1px solid var(--border)">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+
+      <!-- JW_CAD保存ルール -->
+      <div style="background:var(--bg1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px">
+        <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px;letter-spacing:.5px">📁 JW_CADでのDXF保存ルール</div>
+        <table style="width:100%;font-size:12px;border-collapse:collapse">
+          <tr><td style="padding:4px 0;color:var(--text2);width:90px">保存形式</td><td style="padding:4px 0;font-weight:700;color:var(--text)">R12/LT2形式 ★必須</td></tr>
+          <tr><td style="padding:4px 0;color:var(--text2)">単位</td><td style="padding:4px 0;color:var(--text)">mm統一（インチ不可）</td></tr>
+          <tr><td style="padding:4px 0;color:var(--text2)">外形線レイヤー</td><td style="padding:4px 0;font-family:var(--mono);font-size:11px;color:var(--green)">外形</td></tr>
+          <tr><td style="padding:4px 0;color:var(--text2)">寸法レイヤー</td><td style="padding:4px 0;font-family:var(--mono);font-size:11px;color:var(--green)">寸法</td></tr>
+          <tr><td style="padding:4px 0;color:var(--text2)">中心線レイヤー</td><td style="padding:4px 0;font-family:var(--mono);font-size:11px;color:var(--green)">中心 または CENTER</td></tr>
+          <tr><td style="padding:4px 0;color:var(--text2)">直径寸法文字</td><td style="padding:4px 0;font-family:var(--mono);font-size:11px;color:var(--accent)">φ50 または Φ50</td></tr>
+          <tr><td style="padding:4px 0;color:var(--text2)">半径文字</td><td style="padding:4px 0;font-family:var(--mono);font-size:11px;color:var(--accent)">R10</td></tr>
+          <tr><td style="padding:4px 0;color:var(--text2)">ねじ表記</td><td style="padding:4px 0;font-family:var(--mono);font-size:11px;color:var(--accent)">M20×1.5 または M20P1.5</td></tr>
+        </table>
+        <div style="margin-top:10px;padding:8px 10px;background:var(--amber-l);border-radius:var(--radius);font-size:11px;color:var(--amber)">
+          ⚠ 「DXF R2000以降」形式は読み取り精度が下がります。必ずR12/LT2を選択してください。
+        </div>
+      </div>
+
+      <!-- 通常の寸法表記 -->
+      <div style="background:var(--bg1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px">
+        <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px;letter-spacing:.5px">📏 寸法表記ルール（旋削）</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:8px">外径・長さ</div>
+        <div style="font-family:var(--mono);font-size:11px;background:var(--bg2);padding:8px;border-radius:var(--radius);margin-bottom:10px;line-height:2">
+          外径：<span style="color:var(--accent)">φ50</span> または <span style="color:var(--accent)">Φ50</span><br>
+          長さ：<span style="color:var(--accent)">30</span>（数字のみ）<br>
+          内径：<span style="color:var(--accent)">φ25H7</span>（公差付きも可）<br>
+          ねじ：<span style="color:var(--accent)">M20×1.5</span><br>
+          面取り：<span style="color:var(--accent)">C1</span> または <span style="color:var(--accent)">R2</span>
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:6px">表面粗さ記号（参考）</div>
+        <div style="font-family:var(--mono);font-size:11px;background:var(--bg2);padding:8px;border-radius:var(--radius);line-height:2">
+          <span style="color:var(--text2)">▽▽ = Ra6.3（荒）</span><br>
+          <span style="color:var(--text2)">▽▽▽ = Ra3.2（中）</span><br>
+          <span style="color:var(--text2)">▽▽▽▽ = Ra1.6（仕上）</span>
+        </div>
+      </div>
+
+      <!-- 横穴・複雑形状 -->
+      <div style="background:var(--bg1);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:var(--radius-lg);padding:14px">
+        <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px;letter-spacing:.5px">🕳 横穴・複雑形状の表記ルール</div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:600">① 端面穴（Cアクシス等分）</div>
+        <div style="font-family:var(--mono);font-size:11px;background:var(--bg2);padding:7px;border-radius:var(--radius);margin-bottom:8px;line-height:1.9">
+          <span style="color:var(--accent)">4-φ8 深さ20 PCD60</span><br>
+          <span style="color:var(--text3)">→ 4穴等分、PCD=60mm</span>
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:600">② 側面穴（角度指定）</div>
+        <div style="font-family:var(--mono);font-size:11px;background:var(--bg2);padding:7px;border-radius:var(--radius);margin-bottom:8px;line-height:1.9">
+          <span style="color:var(--accent)">2-φ6 深さ15 C90°/270°</span><br>
+          <span style="color:var(--text3)">→ 90°と270°に2穴</span>
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:600">③ キー溝・フライス面</div>
+        <div style="font-family:var(--mono);font-size:11px;background:var(--bg2);padding:7px;border-radius:var(--radius);margin-bottom:8px;line-height:1.9">
+          <span style="color:var(--accent)">キー溝 幅6 深3 長40 C0°</span><br>
+          <span style="color:var(--text3)">→ Cアクシス0°位置</span>
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:600">④ 複数面フライス</div>
+        <div style="font-family:var(--mono);font-size:11px;background:var(--bg2);padding:7px;border-radius:var(--radius);line-height:1.9">
+          <span style="color:var(--accent)">6面割 C0°/60°/120°...</span><br>
+          <span style="color:var(--text3)">→ 等分割で角度自動計算</span>
+        </div>
+        <div style="margin-top:8px;padding:7px 9px;background:var(--accent-l);border-radius:var(--radius);font-size:11px;color:var(--accent-d)">
+          💡 横穴はDXFで自動認識が難しいため、<strong>補足メモ欄</strong>に上記形式で記入すると精度が上がります。
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 対応表 -->
+    <div style="margin-top:12px;padding:12px 14px;background:var(--bg1);border:1px solid var(--border);border-radius:var(--radius-lg);font-size:12px">
+      <div style="font-weight:700;color:var(--text2);margin-bottom:8px;font-size:11px;letter-spacing:.5px;text-transform:uppercase">図面種別ごとの推奨対応</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--green-l);border-radius:var(--radius)"><span style="color:var(--green);font-weight:700;font-size:13px">◎</span><span style="color:var(--text)">JW_CAD DXF（自作）</span></div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--green-l);border-radius:var(--radius)"><span style="color:var(--green);font-weight:700;font-size:13px">◎</span><span style="color:var(--text)">外部DXFデータ</span></div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--amber-l);border-radius:var(--radius)"><span style="color:var(--amber);font-weight:700;font-size:13px">△</span><span style="color:var(--text)">手書き・紙図面 → 手動入力</span></div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--amber-l);border-radius:var(--radius)"><span style="color:var(--amber);font-weight:700;font-size:13px">△</span><span style="color:var(--text)">PDF → DXF変換後に使用</span></div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--accent-l);border-radius:var(--radius)"><span style="color:var(--accent);font-weight:700;font-size:13px">★</span><span style="color:var(--text)">複雑形状 → 寸法入力補助モード</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleGuide() {
+  const body = document.getElementById('guide-body');
+  const icon = document.getElementById('guide-toggle-icon');
+  const open = body.style.display === 'none';
+  body.style.display = open ? 'block' : 'none';
+  icon.textContent = open ? '▲ 閉じる' : '▼ 開く';
+  if (open) localStorage.setItem('guide_open','1');
+  else localStorage.removeItem('guide_open');
+}
+// 前回開いていたら開いた状態で表示
+if (localStorage.getItem('guide_open')) {
+  document.getElementById('guide-body').style.display = 'block';
+  document.getElementById('guide-toggle-icon').textContent = '▲ 閉じる';
+}
+</script>
+
+
 <div class="step-indicator">
   <div class="step-ind active" id="step1">① DXFアップロード</div>
   <div class="step-ind" id="step2">② 寸法確認・選択</div>
