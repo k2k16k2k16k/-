@@ -1,19 +1,21 @@
 {
-  "version": "3.1.0",
+  "version": "3.2.0",
   "updated": "2026-03-16",
   "files": {
-    "index.html":           "3.1.0",
-    "css/common.css":       "3.1.0",
-    "js/common.js":         "3.1.0",
-    "pages/gcode.html":     "3.1.0",
-    "pages/compound.html":  "3.1.0",
-    "pages/tools.html":     "3.1.0",
-    "pages/log.html":       "3.1.0",
-    "pages/calc.html":      "3.1.0",
-    "pages/preview.html":   "3.1.0",
-    "pages/drawing.html":   "3.1.0"
+    "index.html": "3.2.0",
+    "css/common.css": "3.2.0",
+    "js/common.js": "3.2.0",
+    "pages/gcode.html": "3.2.0",
+    "pages/compound.html": "3.2.0",
+    "pages/tools.html": "3.2.0",
+    "pages/log.html": "3.2.0",
+    "pages/calc.html": "3.2.0",
+    "pages/preview.html": "3.2.0",
+    "pages/drawing.html": "3.2.0",
+    "pages/knowledge.html": "3.2.0"
   },
   "changelog": [
+    "3.2.0: びびり対策・ねじ精度・表面処理計算追加、Gコード逆解析・ノウハウDB・トラブルシューター追加",
     "3.1.0: 工具登録→Gコード完全連動、3Dプレビュー精度向上、DXF図面読み込み追加",
     "3.0.0: 全機能実装（加工時間・公差・ねじ下穴・実績ログ・切削負荷・面粗さ・比較）",
     "2.0.0: 複合加工ビルダー追加",

@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ナレッジ | NC Suite</title>
+<link rel="stylesheet" href="../css/common.css">
+<style>
+.kn-layout{display:grid;grid-template-columns:180px 1fr;min-height:calc(100vh - 54px)}
+.kn-menu{background:var(--bg1);border-right:1px solid var(--border);padding:14px 10px}
+.kn-item{padding:10px 12px;border-radius:var(--radius);font-size:13px;font-weight:500;cursor:pointer;margin-bottom:4px;transition:all .15s;color:var(--text2);display:flex;align-items:center;gap:8px}
+.kn-item:hover{background:var(--bg2);color:var(--text)}
+.kn-item.active{background:var(--accent-l);color:var(--accent);font-weight:700}
+.kn-content{padding:24px;overflow-y:auto}
+.gcode-input-area{font-family:var(--mono);font-size:12px;width:100%;min-height:200px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;color:var(--text);resize:vertical;line-height:1.8}
+.analysis-result{background:var(--bg1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;margin-top:14px}
+.block-card{background:var(--bg2);border-radius:var(--radius);padding:10px 14px;margin-bottom:8px;border-left:3px solid var(--accent)}
+.block-code{font-family:var(--mono);font-size:11px;color:var(--text2);margin-bottom:4px}
+.block-desc{font-size:13px;color:var(--text);line-height:1.7}
+.know-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.know-chip{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid var(--border);cursor:pointer;background:var(--bg1);color:var(--text2);transition:all .12s}
+.know-chip:hover{border-color:var(--accent);color:var(--accent)}
+.know-chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.know-card{background:var(--bg1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:10px;transition:all .15s}
+.know-card:hover{border-color:var(--border2);box-shadow:var(--shadow)}
+.know-card-top{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.know-card-title{font-size:14px;font-weight:700;flex:1}
+.know-card-body{font-size:13px;color:var(--text2);line-height:1.7}
+.know-card-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;align-items:center}
+.know-add-form{background:var(--bg2);border-radius:var(--radius-lg);padding:16px;margin-bottom:16px}
+.ts-q{background:var(--bg1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px}
+.ts-q-text{font-size:14px;font-weight:700;margin-bottom:12px}
+.ts-opts{display:flex;gap:8px;flex-wrap:wrap}
+.ts-opt{padding:8px 16px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;background:var(--bg1);color:var(--text);transition:all .15s;font-family:var(--sans)}
+.ts-opt:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-l)}
+.ts-answer{background:var(--green-l);border:1px solid var(--green);border-radius:var(--radius-lg);padding:16px}
+.ts-answer-title{font-size:14px;font-weight:700;color:var(--green);margin-bottom:8px}
+.ts-answer-body{font-size:13px;color:var(--text);line-height:1.8}
+.ts-breadcrumb{font-size:11px;color:var(--text3);margin-bottom:12px;display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.ts-bc-sep{color:var(--text3)}
+.gw{color:#2563eb}.mw{color:#dc2626}
+@media(max-width:768px){.kn-layout{grid-template-columns:1fr}.kn-menu{display:flex;flex-wrap:wrap;gap:4px;border-right:none;border-bottom:1px solid var(--border);padding:10px}.kn-item{padding:6px 10px;font-size:12px}}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a class="nav-logo" href="../index.html">⚙ NC Suite</a>
+  <div class="nav-links">
+    <a class="nav-link" href="../index.html">🏠 <span>ホーム</span></a>
+    <a class="nav-link" href="gcode.html">📝 <span>Gコード生成</span></a>
+    <a class="nav-link" href="compound.html">🔗 <span>複合加工</span></a>
+    <a class="nav-link" href="tools.html">🔧 <span>工具登録</span></a>
+    <a class="nav-link" href="log.html">📋 <span>加工実績</span></a>
+    <a class="nav-link" href="calc.html">🧮 <span>計算ツール</span></a>
+    <a class="nav-link active" href="knowledge.html">💡 <span>ナレッジ</span></a>
+    <a class="nav-link" href="drawing.html">📐 <span>図面読込</span></a>
+    <a class="nav-link" href="preview.html">🖥 <span>プレビュー</span></a>
+  </div>
+</nav>
+
+<div class="kn-layout">
+  <div class="kn-menu">
+    <div class="kn-item active" onclick="showKn('analyze',this)">🔍 Gコード逆解析</div>
+    <div class="kn-item" onclick="showKn('knowhow',this)">📚 加工ノウハウDB</div>
+    <div class="kn-item" onclick="showKn('trouble',this)">🛠 トラブルシューター</div>
+  </div>
+
+  <div class="kn-content">
+
+    <!-- Gコード逆解析 -->
+    <div id="kn-analyze" class="tab-panel active">
+      <div class="page-title">🔍 Gコード逆解析</div>
+      <div class="page-sub">既存のGコードを貼り付けると加工内容を日本語で解説します</div>
+      <textarea class="gcode-input-area" id="analyze-input" placeholder="GコードをここにペーストしてEnter&#10;&#10;例:&#10;G28 U0. W0.&#10;G96 S1000 M03&#10;T0101 M08&#10;G00 X52. Z2.&#10;G01 X45. Z-80. F0.2&#10;M05 M30"></textarea>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="analyzeGcode()">🔍 解析する</button>
+        <button class="btn" onclick="document.getElementById('analyze-input').value='';document.getElementById('analyze-result').innerHTML=''">クリア</button>
+        <button class="btn btn-sm" onclick="loadSampleGcode()">サンプルを読み込む</button>
+      </div>
+      <div id="analyze-result"></div>
+    </div>
+
+    <!-- 加工ノウハウDB -->
+    <div id="kn-knowhow" class="tab-panel">
+      <div class="page-title">📚 加工ノウハウDB</div>
+      <div class="page-sub">現場の経験・コツを蓄積。検索して再利用できます。</div>
+      <details class="know-add-form">
+        <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--accent)">➕ ノウハウを追加</summary>
+        <div style="margin-top:12px">
+          <div class="grid-2">
+            <div class="field"><label>タイトル</label><input type="text" id="kw-title" placeholder="例: SUS304内径仕上げのコツ"></div>
+            <div class="field"><label>カテゴリ</label>
+              <select id="kw-cat">
+                <option>切削条件</option><option>工具</option><option>素材</option>
+                <option>品質</option><option>段取り</option><option>トラブル対処</option>
+              </select>
+            </div>
+          </div>
+          <div class="field"><label>素材（任意）</label>
+            <select id="kw-mat">
+              <option value="">全般</option>
+              <option>S45C</option><option>SS400</option><option>SCM440</option>
+              <option>SUS304</option><option>SUS316</option><option>A2017</option><option>A5052</option><option>C3604</option>
+            </select>
+          </div>
+          <div class="field"><label>内容</label>
+            <textarea id="kw-body" rows="4" placeholder="加工のコツ・注意事項を詳しく書いてください" style="resize:vertical"></textarea>
+          </div>
+          <div class="field"><label>タグ（カンマ区切り）</label>
+            <input type="text" id="kw-tags" placeholder="例: SUS304, 内径, びびり対策">
+          </div>
+          <button class="btn btn-primary" onclick="saveKnowhow()">💾 保存</button>
+        </div>
+      </details>
+      <div class="know-filters" id="kw-filters"></div>
+      <div class="field" style="margin-bottom:12px">
+        <input type="text" id="kw-search" placeholder="キーワード検索..." oninput="renderKnowhow()" style="max-width:400px">
+      </div>
+      <div id="kw-list"></div>
+    </div>
+
+    <!-- トラブルシューター -->
+    <div id="kn-trouble" class="tab-panel">
+      <div class="page-title">🛠 加工トラブルシューター</div>
+      <div class="page-sub">症状を選んでいくと原因と対策が見つかります</div>
+      <div style="margin-bottom:14px;display:flex;gap:8px">
+        <button class="btn btn-sm" onclick="resetTrouble()">🔄 最初から</button>
+      </div>
+      <div class="ts-breadcrumb" id="ts-breadcrumb"></div>
+      <div style="display:flex;flex-direction:column;gap:10px" id="ts-tree"></div>
+    </div>
+
+  </div>
+</div>
+
+<script src="../js/common.js"></script>
+<script>
+function showKn(id, el) {
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.kn-item').forEach(m=>m.classList.remove('active'));
+  document.getElementById('kn-'+id).classList.add('active');
+  el.classList.add('active');
+}
+
+// ===== Gコード逆解析 =====
+const G_DICT = {
+  'G00':'早送り（位置決め移動）','G01':'直線補間（切削送り）','G02':'円弧補間（時計回り）','G03':'円弧補間（反時計回り）',
+  'G04':'ドウェル（一時停止）','G17':'XY平面選択','G28':'機械原点復帰','G32':'ねじ切りサイクル',
+  'G40':'工具径補正キャンセル','G41':'工具径補正 左','G42':'工具径補正 右',
+  'G43':'工具長補正 正','G49':'工具長補正キャンセル',
+  'G50':'主軸最高回転数設定','G54':'ワーク座標系1選択','G80':'固定サイクルキャンセル',
+  'G83':'深穴ドリルサイクル','G84':'タッピングサイクル',
+  'G90':'アブソリュート（絶対値）指令','G91':'インクリメンタル（増分値）指令',
+  'G92':'ねじ切りサイクル（G92）','G95':'毎回転送り','G96':'周速一定制御 ON','G97':'周速一定制御 OFF',
+  'G98':'固定サイクル 初期点復帰','G99':'固定サイクル Rポイント復帰',
+};
+const M_DICT = {
+  'M00':'プログラムストップ','M02':'プログラム終了','M03':'主軸正転（CW）',
+  'M04':'主軸逆転（CCW）','M05':'主軸停止','M06':'工具交換',
+  'M08':'クーラント ON','M09':'クーラント OFF','M10':'チャック閉','M11':'チャック開',
+  'M30':'プログラム終了・先頭復帰','M98':'サブプログラム呼び出し','M99':'サブプログラム終了',
+};
+
+function analyzeGcode() {
+  const src = document.getElementById('analyze-input').value.trim();
+  if (!src) { showToast('Gコードを入力してください','error'); return; }
+  const lines = src.split('\n');
+  const blocks = [];
+  let absMode=true, pos={x:null,z:null}, rpm=null, feed=null, currentG=1;
+  const tok=(line,k)=>{const m=line.match(new RegExp('(?<![A-Z])'+k+'(-?[\\d.]+)'));return m?parseFloat(m[1]):null;};
+
+  lines.forEach((rawLine,idx)=>{
+    const line=rawLine.replace(/\(.*?\)/g,'').trim().toUpperCase();
+    const comment=rawLine.match(/\((.*?)\)/)?.[1]||'';
+    if(!line||line==='%') return;
+    const g=tok(line,'G'),m=tok(line,'M'),x=tok(line,'X'),z=tok(line,'Z');
+    const s=tok(line,'S'),f=tok(line,'F');
+    const t=line.match(/T(\d{4})/)?.[1];
+    if(g===90)absMode=true; if(g===91)absMode=false;
+    if(s!==null)rpm=s; if(f!==null)feed=f;
+    if(g!==null)currentG=g;
+    let desc=[],type='normal';
+    if(g!==null){const gk='G'+String(Math.round(g)).padStart(2,'0');const gd=G_DICT[gk];if(gd)desc.push(`<span class="gw">${gk}</span>: ${gd}`);}
+    if(m!==null){const mk='M'+String(Math.round(m)).padStart(2,'0');const md=M_DICT[mk];if(md)desc.push(`<span class="mw">${mk}</span>: ${md}`);}
+    if(t)desc.push(`<span style="color:var(--purple)">T${t}</span>: 工具番号${t.slice(0,2)} / 補正番号${t.slice(2)}`);
+    if(s!==null)desc.push(`S${s}: ${g===96?`周速 ${s} m/min（周速一定）`:`回転数 ${s} rpm`}`);
+    if(f!==null)desc.push(`F${f}: 送り ${f} mm/rev`);
+    if(x!==null||z!==null){
+      const nx=x!==null?(absMode?x:(pos.x||0)+x):pos.x;
+      const nz=z!==null?(absMode?z:(pos.z||0)+z):pos.z;
+      if(currentG===0){desc.push(`📍 早送り移動 → X${nx??'?'} Z${nz??'?'}`);type='rapid';}
+      else if(currentG===1){desc.push(`✂ 切削 → X${nx??'?'} Z${nz??'?'}${feed?' (F'+feed+')':''}`);type='cut';}
+      else if(currentG===2){desc.push(`🔄 円弧（時計回り） → X${nx??'?'} Z${nz??'?'}`);type='arc';}
+      else if(currentG===3){desc.push(`🔄 円弧（反時計回り） → X${nx??'?'} Z${nz??'?'}`);type='arc';}
+      pos.x=nx; pos.z=nz;
+    }
+    if(comment)desc.push(`💬 ${comment}`);
+    if(desc.length>0){
+      const borderColor={rapid:'var(--accent)',cut:'var(--green)',arc:'var(--amber)',normal:'var(--border2)'}[type]||'var(--border2)';
+      blocks.push({lineNo:idx+1,raw:rawLine.trim(),desc,borderColor});
+    }
+  });
+
+  if(!blocks.length){showToast('解析できるコードが見つかりませんでした','error');return;}
+  const toolNos=[...new Set([...src.matchAll(/T(\d{4})/g)].map(m=>'T'+m[1]))];
+  document.getElementById('analyze-result').innerHTML=`
+    <div class="analysis-result">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px">解析結果</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+        <span class="badge badge-blue">全${lines.length}行</span>
+        <span class="badge badge-green">移動${blocks.length}ブロック</span>
+        ${toolNos.map(t=>`<span class="badge badge-purple">${t}</span>`).join('')}
+        ${src.includes('G96')?'<span class="badge badge-amber">周速一定</span>':''}
+        ${src.includes('M98')?'<span class="badge badge-blue">サブプログラム有</span>':''}
+      </div>
+      ${blocks.map(b=>`
+        <div class="block-card" style="border-left-color:${b.borderColor}">
+          <div class="block-code">行${b.lineNo}: <code>${b.raw.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</code></div>
+          <div class="block-desc">${b.desc.join('<br>')}</div>
+        </div>`).join('')}
+    </div>`;
+}
+
+function loadSampleGcode(){
+  document.getElementById('analyze-input').value=`(外径旋削 S45C)\n%\nO0001\nG28 U0. W0.\nG50 S3000\nG96 S180 M03\nT0101 M08\nG00 X52. Z2.\nG01 X50. Z0. F0.25\nG01 X50. Z-80. F0.25\nG00 X52. Z2.\nG00 X45.\nG01 Z-80. F0.18\nG00 X60. Z100.\nM05 M09\nG28 U0. W0.\nM30\n%`;
+  analyzeGcode();
+}
+
+// ===== ノウハウDB =====
+const DEFAULT_KW=[
+  {id:1,title:'SUS304内径仕上げのコツ',cat:'素材',mat:'SUS304',body:'切込みは0.3mm以下にして切削速度を上げると面粗さが安定する。工具はサーメットが効果的。切削油は水溶性を多めに使用。加工硬化に注意して工具を止めないこと。',tags:['SUS304','内径','面粗さ'],createdAt:new Date().toISOString()},
+  {id:2,title:'アルミ加工時の長切れ屑対策',cat:'切削条件',mat:'A5052',body:'アルミは切れ屑が長くなりやすい。送りを少し上げる（f=0.3以上）か、ブレーカー付きチップを使用する。切削油はケロシン（灯油）が有効。',tags:['アルミ','切れ屑'],createdAt:new Date().toISOString()},
+  {id:3,title:'ねじ切り失敗しないための確認事項',cat:'段取り',mat:'',body:'①G97（回転数一定）を使う ②F値=ピッチを確認 ③1パス目で試切り ④面取り（逃がし）量を忘れずに ⑤ねじゲージで必ず確認',tags:['ねじ切り','段取り'],createdAt:new Date().toISOString()},
+  {id:4,title:'SCM440焼入れ材の切削条件',cat:'素材',mat:'SCM440',body:'HRC50以上はCBNチップを使用。Vc=120〜150m/min、f=0.1〜0.15mm/rev。乾式切削が基本。湿式は熱衝撃でチップが欠けやすい。',tags:['SCM440','焼入れ','CBN'],createdAt:new Date().toISOString()},
+  {id:5,title:'薄肉ワークのチャッキング',cat:'段取り',mat:'',body:'薄肉リングは締め付けトルクに注意。変形防止のため軟爪を成形して接触面積を広げる。内径チャックも有効。',tags:['薄肉','チャック','変形防止'],createdAt:new Date().toISOString()},
+];
+const KW_DB={
+  getAll(){try{return JSON.parse(localStorage.getItem('nc_knowhow')||'[]');}catch{return[];}},
+  save(l){localStorage.setItem('nc_knowhow',JSON.stringify(l));},
+  add(item){const l=this.getAll();item.id=Date.now();item.createdAt=new Date().toISOString();l.unshift(item);this.save(l);},
+  remove(id){this.save(this.getAll().filter(k=>k.id!==id));}
+};
+let activeKwCat='';
+
+function saveKnowhow(){
+  const title=document.getElementById('kw-title').value.trim();
+  const body=document.getElementById('kw-body').value.trim();
+  if(!title||!body){showToast('タイトルと内容は必須です','error');return;}
+  KW_DB.add({title,cat:document.getElementById('kw-cat').value,mat:document.getElementById('kw-mat').value,body,
+    tags:document.getElementById('kw-tags').value.split(',').map(t=>t.trim()).filter(Boolean)});
+  ['kw-title','kw-body','kw-tags'].forEach(id=>document.getElementById(id).value='');
+  renderKnowhow(); showToast('ノウハウを保存しました');
+}
+
+function renderKnowhow(){
+  const q=(document.getElementById('kw-search')?.value||'').toLowerCase();
+  const cats=[...new Set(KW_DB.getAll().map(k=>k.cat))];
+  document.getElementById('kw-filters').innerHTML=
+    ['全て',...cats].map(c=>`<div class="know-chip ${(c==='全て'?!activeKwCat:activeKwCat===c)?'active':''}" onclick="setKwCat('${c==='全て'?'':c}')">${c}</div>`).join('');
+  let items=KW_DB.getAll();
+  if(activeKwCat)items=items.filter(k=>k.cat===activeKwCat);
+  if(q)items=items.filter(k=>(k.title+k.body+k.tags.join(' ')+k.mat).toLowerCase().includes(q));
+  const el=document.getElementById('kw-list');
+  if(!items.length){el.innerHTML='<div style="text-align:center;padding:40px;color:var(--text3);font-size:13px">ノウハウが見つかりません</div>';return;}
+  const cc={'切削条件':'badge-blue','工具':'badge-purple','素材':'badge-amber','品質':'badge-green','段取り':'badge-blue','トラブル対処':'badge-red'};
+  el.innerHTML=items.map(k=>`
+    <div class="know-card">
+      <div class="know-card-top">
+        <div class="know-card-title">📌 ${k.title}</div>
+        <span class="badge ${cc[k.cat]||'badge-blue'}">${k.cat}</span>
+        ${k.mat?`<span class="badge badge-amber">${k.mat}</span>`:''}
+        <button class="btn btn-sm btn-danger" style="margin-left:auto" onclick="removeKw(${k.id})">削除</button>
+      </div>
+      <div class="know-card-body">${k.body}</div>
+      <div class="know-card-tags">
+        ${k.tags.map(t=>`<span style="font-size:11px;background:var(--bg2);border:1px solid var(--border);padding:1px 8px;border-radius:4px;color:var(--text2)">#${t}</span>`).join('')}
+        <span style="font-size:11px;color:var(--text3);margin-left:auto">${fmtDate(k.createdAt).slice(0,10)}</span>
+      </div>
+    </div>`).join('');
+}
+function setKwCat(cat){activeKwCat=cat;renderKnowhow();}
+function removeKw(id){if(!confirm('削除しますか？'))return;KW_DB.remove(id);renderKnowhow();}
+
+// ===== トラブルシューター =====
+const TS={
+  root:{q:'どんなトラブルが発生していますか？',opts:[
+    {label:'寸法が外れる',next:'dim'},{label:'面粗さが悪い',next:'rough'},
+    {label:'工具が折れる・欠ける',next:'tool_break'},{label:'びびり・振動',next:'chatter_ts'},
+    {label:'ねじ不良',next:'thread_bad'},{label:'切れ屑トラブル',next:'chip'},
+    {label:'機械アラーム',next:'alarm'},
+  ]},
+  dim:{q:'寸法ずれの傾向は？',opts:[
+    {label:'毎回同じ方向にずれる',next:'dim_sys'},
+    {label:'ランダムにばらつく',next:'dim_rand'},
+    {label:'加工が進むにつれ変わる',next:'dim_drift'},
+  ]},
+  dim_sys:{answer:true,title:'系統的な寸法ずれ',body:'<strong>原因：</strong>工具補正値のずれ、プログラム座標ミス、工具摩耗<br><br><strong>対策：</strong><br>①工具補正値（オフセット）を確認・修正<br>②テスト切削して実測値との差分を補正値に反映<br>③チップを交換して再測定<br>④G41/G42工具径補正の適用を確認'},
+  dim_rand:{answer:true,title:'ランダムな寸法ばらつき',body:'<strong>原因：</strong>チャッキングのばらつき、熱膨張、工具ビビり<br><br><strong>対策：</strong><br>①チャック爪の摩耗・汚れを確認・清掃<br>②機械の暖機運転を十分に行う<br>③測定方法を統一（同じ測定器・場所・力）<br>④びびりが出ていないか確認'},
+  dim_drift:{answer:true,title:'加工が進むにつれた寸法変化',body:'<strong>原因：</strong>工具摩耗、熱膨張、切削油温度上昇<br><br><strong>対策：</strong><br>①チップの交換サイクルを短くする<br>②切削油の量・温度を管理する<br>③定期的（10個ごとなど）に測定して補正する'},
+  rough:{q:'面粗さ不良の症状は？',opts:[
+    {label:'波目・うねりがある',next:'rough_wave'},
+    {label:'全体的に粗い',next:'rough_all'},
+    {label:'光沢がない・くすむ',next:'rough_dull'},
+  ]},
+  rough_wave:{answer:true,title:'波目・うねりの改善策',body:'<strong>原因：</strong>びびり振動、送り量過大、ノーズRのアンマッチ<br><br><strong>対策：</strong><br>①送りを下げる（f×0.6〜0.7）<br>②回転数を±10〜15%変えて共振域を外す<br>③ノーズRを大きくする（R0.4→R0.8→R1.2）<br>④工具突き出しを短くする'},
+  rough_all:{answer:true,title:'全体的な面粗さ不良',body:'<strong>原因：</strong>切削速度不適切、工具摩耗、構成刃先<br><br><strong>対策：</strong><br>①切削速度を上げる（構成刃先防止）<br>②チップを新品に交換<br>③仕上げパスの切込みを小さく（0.1〜0.2mm）<br>④切削油の種類・量を確認'},
+  rough_dull:{answer:true,title:'光沢なし・くすみの改善',body:'<strong>原因：</strong>切削速度低すぎ、構成刃先（BUE）発生<br><br><strong>対策：</strong><br>①切削速度を上げる（構成刃先は低速域で発生）<br>②チップコーティング種を変更（TiAlNなど）<br>③切削油を多めに'},
+  tool_break:{q:'工具破損のタイミングは？',opts:[
+    {label:'加工開始直後',next:'tool_early'},
+    {label:'しばらくすると折れる',next:'tool_mid'},
+    {label:'ねじ切り中',next:'tool_thread_break'},
+  ]},
+  tool_early:{answer:true,title:'加工開始直後の工具折損',body:'<strong>原因：</strong>切込み過大、早送り接触、工具セットミス<br><br><strong>対策：</strong><br>①G00の位置が素材に食い込んでいないか確認<br>②切込み量apを推奨値の60〜70%から開始<br>③工具補正番号の設定ミスを確認<br>④最初のパスだけ低速で試切り'},
+  tool_mid:{answer:true,title:'途中での工具折損',body:'<strong>原因：</strong>工具摩耗、切削抵抗過大、切れ屑詰まり<br><br><strong>対策：</strong><br>①チップ交換サイクルを早める<br>②切削速度・送り・切込みのいずれかを下げる<br>③切削油の供給が十分か確認<br>④突き出し量L/D比を確認'},
+  tool_thread_break:{answer:true,title:'ねじ切り中の工具折損',body:'<strong>原因：</strong>回転数過高、切込み過大、逃がし不足<br><br><strong>対策：</strong><br>①G97（回転数一定）を使用しているか確認<br>②回転数を下げる（500rpm以下推奨）<br>③1パスの切込みを減らしパス数を増やす<br>④ねじ逃がし（面取り）を設ける'},
+  chatter_ts:{answer:true,title:'びびり・振動の対策',body:'<strong>原因チェックリスト：</strong><br>□ L/D比（突き出し/径）が5以上 → 短くする<br>□ 回転数が共振域 → ±15%変更<br>□ 送りが大きすぎる → 下げる<br>□ チャック把握不足 → 把握代を増やす<br><br><strong>即効性の高い対策：</strong><br>①回転数を現在値の80〜85%に下げる<br>②送りをf×0.7に下げる<br>③防振バーへの変更を検討<br><br>詳細は「計算ツール → びびり対策アドバイザー」で診断できます。'},
+  thread_bad:{q:'ねじの不良の種類は？',opts:[
+    {label:'ゲージが入らない（太すぎ）',next:'thread_tight'},
+    {label:'ゲージがガタガタ（細すぎ）',next:'thread_loose'},
+    {label:'面粗さが悪い',next:'thread_rough_ts'},
+  ]},
+  thread_tight:{answer:true,title:'ねじが太すぎる',body:'<strong>原因：</strong>有効径が許容最大値を超えている<br><br><strong>対策：</strong><br>①チップの有効径補正値を確認・修正<br>②パス数を増やして合計切込みを増やす<br>③チップ摩耗 → 交換<br>④「計算ツール → ねじ精度計算」で許容範囲を確認'},
+  thread_loose:{answer:true,title:'ねじが細すぎる',body:'<strong>原因：</strong>切込み過多、工具の弾き<br><br><strong>対策：</strong><br>①最終パスを同じ座標でもう1パス追加<br>②工具突き出しが長い場合は短くする<br>③計算ツールで有効径の許容範囲を確認'},
+  thread_rough_ts:{answer:true,title:'ねじの面粗さ不良',body:'<strong>原因：</strong>切削速度高すぎ、工具摩耗、びびり<br><br><strong>対策：</strong><br>①回転数を下げる（ねじ切りは低速が基本）<br>②チップを新品に交換<br>③最終仕上げパスを2回通す<br>④切削油を多めに供給'},
+  chip:{answer:true,title:'切れ屑トラブルの対策',body:'<strong>長切れ屑（アルミ・軟鋼で多い）：</strong><br>①送りを上げる（f=0.3以上）<br>②ブレーカー形状付きのチップに変更<br><br><strong>切れ屑詰まり（穴加工）：</strong><br>①G83深穴サイクルでステップ送りを使用<br>②クーラントの量・圧力を上げる<br><br><strong>切れ屑が絡まる：</strong><br>①チップブレーカー形状を変更<br>②エアブローを追加'},
+  alarm:{q:'アラームの種類は？',opts:[
+    {label:'過負荷（サーボ・スピンドル）',next:'alarm_over'},
+    {label:'ソフトリミット超過',next:'alarm_limit'},
+    {label:'工具折損検知',next:'alarm_tool'},
+  ]},
+  alarm_over:{answer:true,title:'過負荷アラームの対処',body:'<strong>緊急対処：</strong><br>①主軸停止・切削油OFF<br>②ワーク・工具の状態を確認<br>③アラームリセット後、手動で工具を退避<br><br><strong>再発防止：</strong><br>①切込み・送りを下げる<br>②工具の摩耗・破損を確認<br>③「切削負荷計算」で必要馬力を確認'},
+  alarm_limit:{answer:true,title:'ソフトリミット超過の対処',body:'<strong>対処手順：</strong><br>①ハンドルモードでリミット内に戻す<br>②ワーク原点（G54等）の設定値を確認<br>③プログラムの最大・最小座標を確認<br>④ドライランで動作確認してから再開'},
+  alarm_tool:{answer:true,title:'工具折損検知アラームの対処',body:'<strong>対処手順：</strong><br>①機械を止めてワーク・工具を確認<br>②折れた工具の破片がワーク・機内にないか確認<br>③チップ・工具を交換して補正値を再設定<br>④ワーク寸法を確認（加工途中の場合）'},
+};
+
+let tsPath=['root'],tsBc=[];
+
+function renderTrouble(){
+  const node=TS[tsPath[tsPath.length-1]];if(!node)return;
+  document.getElementById('ts-breadcrumb').innerHTML=tsBc.map((b,i)=>`<span class="ts-bc-item">${b}</span>${i<tsBc.length-1?'<span class="ts-bc-sep"> › </span>':''}`).join('');
+  const tree=document.getElementById('ts-tree');
+  if(node.answer){
+    tree.innerHTML=`
+      <div class="ts-answer">
+        <div class="ts-answer-title">✅ ${node.title}</div>
+        <div class="ts-answer-body">${node.body}</div>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button class="btn btn-sm" onclick="resetTrouble()">🔄 最初から</button>
+        <button class="btn btn-sm" onclick="backTS()">← 戻る</button>
+      </div>`;
+    return;
+  }
+  tree.innerHTML=`
+    <div class="ts-q">
+      <div class="ts-q-text">${node.q}</div>
+      <div class="ts-opts">${node.opts.map(o=>`<button class="ts-opt" onclick="selectTS('${o.next}','${o.label}')">${o.label}</button>`).join('')}</div>
+    </div>
+    ${tsPath.length>1?`<button class="btn btn-sm" onclick="backTS()">← 戻る</button>`:''}`;
+}
+function selectTS(next,label){tsPath.push(next);tsBc.push(label);renderTrouble();}
+function backTS(){if(tsPath.length>1){tsPath.pop();tsBc.pop();renderTrouble();}}
+function resetTrouble(){tsPath=['root'];tsBc=[];renderTrouble();}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  if(!localStorage.getItem('nc_knowhow'))localStorage.setItem('nc_knowhow',JSON.stringify(DEFAULT_KW));
+  renderKnowhow();
+  renderTrouble();
+});
+</script>
+</body>
+</html>

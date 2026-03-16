@@ -33,6 +33,7 @@
     <a class="nav-link" href="tools.html">🔧 <span>工具登録</span></a>
     <a class="nav-link" href="log.html">📋 <span>加工実績</span></a>
     <a class="nav-link active" href="calc.html">🧮 <span>計算ツール</span></a>
+    <a class="nav-link" href="knowledge.html">💡 <span>ナレッジ</span></a>
     <a class="nav-link" href="drawing.html">📐 <span>図面読込</span></a>
     <a class="nav-link" href="preview.html">🖥 <span>パスプレビュー</span></a>
   </div>
@@ -46,6 +47,9 @@
     <div class="calc-menu-item" onclick="showCalc('rough',this)">📊 面粗さ推定</div>
     <div class="calc-menu-item" onclick="showCalc('force',this)">⚡ 切削負荷</div>
     <div class="calc-menu-item" onclick="showCalc('compare',this)">📈 条件比較</div>
+    <div class="calc-menu-item" onclick="showCalc('chatter',this)">📳 びびり対策</div>
+    <div class="calc-menu-item" onclick="showCalc('thread_acc',this)">🔩 ねじ精度</div>
+    <div class="calc-menu-item" onclick="showCalc('surface',this)">✨ 表面処理後寸法</div>
   </div>
   <div class="calc-content">
 
@@ -221,6 +225,149 @@
         </div>
       </div>
       <div style="overflow-x:auto"><table class="tbl compare-table" id="compare-table"></table></div>
+    </div>
+
+
+    <!-- ⑦ びびり対策アドバイザー -->
+    <div id="calc-chatter" class="tab-panel">
+      <div class="page-title">📳 びびり振動・切削条件チューニングアドバイザー</div>
+      <div class="page-sub">症状と加工条件を入力すると、原因と改善策を提示します</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">症状・加工条件</div>
+          <div class="field"><label>びびりの症状</label>
+            <select id="ch-symptom" onchange="calcChatter()">
+              <option value="surface">表面に波目・縞模様が出る</option>
+              <option value="noise">異常な騒音・共鳴音がする</option>
+              <option value="tool">工具チップが欠ける・折れる</option>
+              <option value="dim">寸法がばらつく</option>
+              <option value="rough">面粗さが目標に届かない</option>
+            </select>
+          </div>
+          <div class="field"><label>加工種別</label>
+            <select id="ch-proc" onchange="calcChatter()">
+              <option value="od">外径旋削</option><option value="id">内径ボーリング</option>
+              <option value="thread">ねじ切り</option><option value="groove">溝入れ</option>
+              <option value="mill">フライス・エンドミル</option>
+            </select>
+          </div>
+          <div class="grid-2">
+            <div class="field"><label>現在の回転数 (rpm)</label><input type="number" id="ch-rpm" value="1000" oninput="calcChatter()"></div>
+            <div class="field"><label>現在の送り (mm/rev)</label><input type="number" id="ch-feed" value="0.2" step="0.01" oninput="calcChatter()"></div>
+            <div class="field"><label>工具突き出し長 (mm)</label><input type="number" id="ch-overhang" value="30" oninput="calcChatter()"></div>
+            <div class="field"><label>工具径 (mm)</label><input type="number" id="ch-dia" value="25" oninput="calcChatter()"></div>
+          </div>
+          <div class="field"><label>ワーク材質系統</label>
+            <select id="ch-mat" onchange="calcChatter()">
+              <option value="steel">鉄鋼（S45C・SS400）</option>
+              <option value="alloy">合金鋼（SCM・SKD）</option>
+              <option value="sus">ステンレス（SUS304）</option>
+              <option value="al">アルミ合金</option>
+              <option value="thin">薄肉・細長いワーク</option>
+            </select>
+          </div>
+        </div>
+        <div id="chatter-result" class="card">
+          <div class="card-title">診断結果</div>
+          <div style="color:var(--text2);font-size:13px">条件を入力してください</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⑧ ねじ精度・有効径計算 -->
+    <div id="calc-thread_acc" class="tab-panel">
+      <div class="page-title">🔩 ねじ精度・有効径計算</div>
+      <div class="page-sub">ねじの許容寸法・有効径・合否判定を計算します</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">ねじ仕様</div>
+          <div class="field"><label>ねじ種別</label>
+            <select id="th-kind" onchange="calcThreadAcc()">
+              <option value="bolt">おねじ（ボルト）</option>
+              <option value="nut">めねじ（ナット）</option>
+            </select>
+          </div>
+          <div class="grid-2">
+            <div class="field"><label>呼び径</label>
+              <select id="tha-size" onchange="calcThreadAcc()">
+                <option>M3</option><option>M4</option><option>M5</option><option>M6</option>
+                <option selected>M8</option><option>M10</option><option>M12</option>
+                <option>M16</option><option>M20</option><option>M24</option><option>M30</option>
+              </select>
+            </div>
+            <div class="field"><label>精度クラス</label>
+              <select id="tha-class" onchange="calcThreadAcc()">
+                <option value="6g">6g（おねじ標準）</option>
+                <option value="6h">6h（精密）</option>
+                <option value="6H">6H（めねじ標準）</option>
+                <option value="6G">6G（めねじ精密）</option>
+                <option value="4g">4g（精密おねじ）</option>
+                <option value="4H">4H（精密めねじ）</option>
+              </select>
+            </div>
+          </div>
+          <div class="field"><label>実測値 (mm)（合否判定に使用）</label>
+            <input type="number" id="tha-measured" placeholder="測定した有効径を入力" step="0.001" oninput="calcThreadAcc()">
+          </div>
+        </div>
+        <div id="thread-acc-result" class="card">
+          <div class="card-title">計算結果</div>
+          <div style="color:var(--text2);font-size:13px">仕様を選択してください</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⑨ 表面処理後寸法計算 -->
+    <div id="calc-surface" class="tab-panel">
+      <div class="page-title">✨ 表面処理後寸法計算</div>
+      <div class="page-sub">メッキ・熱処理後の寸法変化を加味した加工前寸法を計算します</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">処理条件</div>
+          <div class="field"><label>表面処理の種類</label>
+            <select id="sf-type" onchange="calcSurface()">
+              <optgroup label="めっき">
+                <option value="cr_hard">硬質クロムめっき</option>
+                <option value="cr_deco">装飾クロムめっき</option>
+                <option value="ni_elect">電解ニッケルめっき</option>
+                <option value="ni_less">無電解ニッケルめっき</option>
+                <option value="zn">亜鉛めっき</option>
+                <option value="black_oxide">黒染め</option>
+              </optgroup>
+              <optgroup label="熱処理・表面硬化">
+                <option value="nitriding">窒化処理</option>
+                <option value="carburizing">浸炭焼入れ</option>
+                <option value="induction">高周波焼入れ</option>
+                <option value="anodize">アルマイト（陽極酸化）</option>
+              </optgroup>
+              <optgroup label="コーティング">
+                <option value="ticn">TiCNコーティング</option>
+                <option value="tin">TiNコーティング</option>
+                <option value="dlc">DLCコーティング</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="grid-2">
+            <div class="field"><label>目標仕上がり寸法 (mm)</label>
+              <input type="number" id="sf-target" placeholder="50.000" step="0.001" oninput="calcSurface()">
+            </div>
+            <div class="field"><label>寸法種別</label>
+              <select id="sf-dim-type" onchange="calcSurface()">
+                <option value="outer">外径</option>
+                <option value="inner">内径</option>
+                <option value="length">長さ・厚み</option>
+              </select>
+            </div>
+          </div>
+          <div class="field"><label>めっき厚み指定 (μm)（0=標準値を使用）</label>
+            <input type="number" id="sf-thickness" value="0" step="1" oninput="calcSurface()">
+          </div>
+        </div>
+        <div id="surface-result" class="card">
+          <div class="card-title">計算結果</div>
+          <div style="color:var(--text2);font-size:13px">処理種類と目標寸法を入力してください</div>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -441,8 +588,261 @@ function calcCompare() {
   `;
 }
 
+
+// ===== ⑦ びびり対策アドバイザー =====
+const CHATTER_DB = {
+  surface: {
+    causes: ['切削速度が共振周波数に一致','工具突き出し過多','ワーク剛性不足','チップ取付け不良'],
+    fixes: {
+      rpm:   {action:'回転数を±15%変更', detail:'共振を避けるため現在値から10〜20%上げるか下げる。'},
+      feed:  {action:'送りを下げる', detail:'f×0.7〜0.8程度に落として切削抵抗を減らす。'},
+      over:  {action:'突き出しを短く', detail:'L/D比を4以下に。バーのシャンク径を上げるかホルダを変更。'},
+      tool:  {action:'チップのすくい角・逃げ角を見直し', detail:'正のすくい角チップで切削力を下げる。'},
+    }
+  },
+  noise: {
+    causes: ['機械・チャックの共振','回転バランス不良','ベアリング摩耗'],
+    fixes: {
+      rpm:   {action:'回転数を10〜20%変更して共振域から外す'},
+      tool:  {action:'振れ・アンバランスを確認。バランス取りを実施'},
+    }
+  },
+  tool: {
+    causes: ['切込み過多','切削速度過大','工具材種ミスマッチ','切削油不足'],
+    fixes: {
+      rpm:   {action:'切削速度を下げる（−20〜30%）', detail:'チップ耐熱温度を超えている可能性。'},
+      feed:  {action:'切込みapを下げる', detail:'1パスの切込みを半分にしてパス数を増やす。'},
+      tool:  {action:'工具材種・コーティングを見直し', detail:'SUSならサーメット、ステンレスなら専用コーティングチップ。'},
+    }
+  },
+  dim: {
+    causes: ['熱膨張による寸法変化','チップ摩耗','切削油温度管理不足'],
+    fixes: {
+      rpm:   {action:'切削速度を下げて発熱を抑制'},
+      feed:  {action:'こまめなチップ交換サイクルを設定'},
+      tool:  {action:'切削油の量・種類・温度を確認'},
+    }
+  },
+  rough: {
+    causes: ['送り量が大きすぎる','ノーズRと送りのアンマッチ','びびりによる断続切削'],
+    fixes: {
+      feed:  {action:'送りを下げる', detail:'目標Ra値から逆算した最大送り = √(8×Re×Ra) を使用。'},
+      tool:  {action:'ノーズRを大きくする', detail:'R0.4→R0.8→R1.2と上げると面粗さが改善。'},
+      rpm:   {action:'仕上げパスの切削速度を上げる', detail:'高速仕上げで構成刃先を防止。'},
+    }
+  }
+};
+
+const PROC_ADVICE = {
+  id: '内径加工はL/D比に特に注意。突き出しが長いほど剛性が落ちます。防振バーの使用を検討してください。',
+  thread: 'ねじ切りのびびりは主軸回転数を下げると改善することが多いです。G97（回転数一定）推奨。',
+  groove: '溝入れは送りを極力下げて（f=0.02〜0.05）、ドウェル（G04）を活用してください。',
+  mill: 'エンドミルは切り上げ（アップカット）より切り下げ（ダウンカット）に変更するとびびりが減ります。',
+};
+
+const MAT_ADVICE = {
+  sus: 'SUS304は加工硬化しやすいので、工具を止めずに連続して送ることが重要です。切込みは浅くしすぎない。',
+  alloy: '硬い合金鋼はチップ欠損に注意。切削速度を落とし気味にして工具寿命を優先してください。',
+  thin: '薄肉・細長いワークは振れ止めや回転センターの活用を検討してください。チャック把握面積を広くとる。',
+};
+
+function calcChatter() {
+  const symptom   = document.getElementById('ch-symptom').value;
+  const proc      = document.getElementById('ch-proc').value;
+  const mat       = document.getElementById('ch-mat').value;
+  const rpm       = parseFloat(document.getElementById('ch-rpm').value)||1000;
+  const feed      = parseFloat(document.getElementById('ch-feed').value)||0.2;
+  const overhang  = parseFloat(document.getElementById('ch-overhang').value)||30;
+  const dia       = parseFloat(document.getElementById('ch-dia').value)||25;
+  const ld        = overhang / dia;
+  const db        = CHATTER_DB[symptom];
+
+  const ldWarning = ld > 5 ? `<div class="alert alert-danger" style="margin-bottom:10px">⚠ L/D比 = ${ld.toFixed(1)} — <strong>5を超えています！</strong> びびりの主因になります。突き出しを短くするか防振バーを検討してください。</div>` :
+                    ld > 3 ? `<div class="alert alert-warn" style="margin-bottom:10px">L/D比 = ${ld.toFixed(1)} — やや高め。可能なら短くすることをお勧めします。</div>` :
+                    `<div class="alert alert-success" style="margin-bottom:10px">✅ L/D比 = ${ld.toFixed(1)} — 良好です。</div>`;
+
+  const causes = db.causes.map(c => `<li style="margin-bottom:4px">${c}</li>`).join('');
+  const fixes = Object.values(db.fixes).map(f =>
+    `<div style="margin-bottom:8px;padding:8px 12px;background:var(--bg2);border-left:3px solid var(--accent);border-radius:0 var(--radius) var(--radius) 0">
+      <div style="font-size:12px;font-weight:700;color:var(--accent)">${f.action}</div>
+      ${f.detail ? `<div style="font-size:12px;color:var(--text2);margin-top:2px">${f.detail}</div>` : ''}
+    </div>`
+  ).join('');
+
+  const procNote = PROC_ADVICE[proc] ? `<div class="alert alert-info" style="margin-top:10px">${PROC_ADVICE[proc]}</div>` : '';
+  const matNote  = MAT_ADVICE[mat]  ? `<div class="alert alert-warn" style="margin-top:6px">${MAT_ADVICE[mat]}</div>`   : '';
+
+  // 推奨回転数帯（±15%）
+  const rpmLow  = Math.round(rpm * 0.80);
+  const rpmMid  = Math.round(rpm * 0.90);
+  const rpmHigh = Math.round(rpm * 1.15);
+
+  document.getElementById('chatter-result').innerHTML = `
+    <div class="card-title">診断結果</div>
+    ${ldWarning}
+    <div style="margin-bottom:10px">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">考えられる原因</div>
+      <ul style="padding-left:16px;font-size:13px;color:var(--text)">${causes}</ul>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">改善策</div>
+      ${fixes}
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">試すべき回転数帯</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span class="badge badge-blue">⬇ ${rpmLow} rpm</span>
+        <span class="badge badge-amber">${rpmMid} rpm（−10%）</span>
+        <span class="badge badge-green">⬆ ${rpmHigh} rpm（+15%）</span>
+      </div>
+    </div>
+    ${procNote}${matNote}
+  `;
+}
+
+// ===== ⑧ ねじ精度・有効径計算 =====
+const THREAD_DATA = {
+  M3:  {d:3,  p:0.5,  d2_nom:2.675, d1_nom:2.459},
+  M4:  {d:4,  p:0.7,  d2_nom:3.545, d1_nom:3.242},
+  M5:  {d:5,  p:0.8,  d2_nom:4.480, d1_nom:4.134},
+  M6:  {d:6,  p:1.0,  d2_nom:5.350, d1_nom:4.917},
+  M8:  {d:8,  p:1.25, d2_nom:7.188, d1_nom:6.647},
+  M10: {d:10, p:1.5,  d2_nom:9.026, d1_nom:8.376},
+  M12: {d:12, p:1.75, d2_nom:10.863,d1_nom:10.106},
+  M16: {d:16, p:2.0,  d2_nom:14.701,d1_nom:13.835},
+  M20: {d:20, p:2.5,  d2_nom:18.376,d1_nom:17.294},
+  M24: {d:24, p:3.0,  d2_nom:22.051,d1_nom:20.752},
+  M30: {d:30, p:3.5,  d2_nom:27.727,d1_nom:26.211},
+};
+
+// 公差 (μm) [ES/es上偏差, EI/ei下偏差]
+const THREAD_TOL = {
+  '6g': (p,d) => { const Td2=Math.round((11*p**0.667)*1.32); const es=-26; return {d2_upper:es, d2_lower:es-Td2}; },
+  '6h': (p,d) => { const Td2=Math.round((11*p**0.667)*1.32); return {d2_upper:0, d2_lower:-Td2}; },
+  '4g': (p,d) => { const Td2=Math.round((11*p**0.667)*0.85); const es=-26; return {d2_upper:es, d2_lower:es-Td2}; },
+  '6H': (p,d) => { const Td2=Math.round((11*p**0.667)*1.32); return {d2_upper:Td2, d2_lower:0}; },
+  '6G': (p,d) => { const Td2=Math.round((11*p**0.667)*1.32); const EI=26; return {d2_upper:EI+Td2, d2_lower:EI}; },
+  '4H': (p,d) => { const Td2=Math.round((11*p**0.667)*0.85); return {d2_upper:Td2, d2_lower:0}; },
+};
+
+function calcThreadAcc() {
+  const size  = document.getElementById('tha-size').value;
+  const cls   = document.getElementById('tha-class').value;
+  const kind  = document.getElementById('th-kind').value;
+  const meas  = parseFloat(document.getElementById('tha-measured').value);
+  const td    = THREAD_DATA[size]; if(!td) return;
+  const tolFn = THREAD_TOL[cls];  if(!tolFn) return;
+  const tol   = tolFn(td.p, td.d);
+
+  const d2_max = (td.d2_nom + tol.d2_upper/1000).toFixed(3);
+  const d2_min = (td.d2_nom + tol.d2_lower/1000).toFixed(3);
+  const d_max  = (td.d + (cls.includes('h')||cls.includes('g') ? (cls==='6g'?-0.026:0) : 0)).toFixed(3);
+  const d1_min = td.d1_nom.toFixed(3);
+
+  let judgeHtml = '';
+  if (!isNaN(meas)) {
+    const ok = meas >= parseFloat(d2_min) && meas <= parseFloat(d2_max);
+    judgeHtml = `<div class="alert ${ok?'alert-success':'alert-danger'}" style="margin-top:12px">
+      ${ok ? '✅ 合格 — 有効径は許容範囲内です' : `❌ 不合格 — 有効径 ${meas.toFixed(3)}mm は範囲外です`}
+    </div>`;
+  }
+
+  document.getElementById('thread-acc-result').innerHTML = `
+    <div class="card-title">${size} ${cls} 精度計算結果</div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px">基本寸法</div>
+      <div class="result-box">
+        <div class="result-row"><span class="result-label">呼び外径</span><span class="result-val">${td.d}<span class="result-unit">mm</span></span></div>
+        <div class="result-row"><span class="result-label">ピッチ</span><span class="result-val">${td.p}<span class="result-unit">mm</span></span></div>
+        <div class="result-row"><span class="result-label">有効径（基準）</span><span class="result-val">${td.d2_nom.toFixed(3)}<span class="result-unit">mm</span></span></div>
+        <div class="result-row"><span class="result-label">谷の径（基準）</span><span class="result-val">${d1_min}<span class="result-unit">mm</span></span></div>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px">許容寸法（${cls}）</div>
+      <div class="result-box">
+        <div class="result-row"><span class="result-label">有効径 最大</span><span class="result-val" style="color:var(--accent)">${d2_max}<span class="result-unit">mm</span></span></div>
+        <div class="result-row"><span class="result-label">有効径 最小</span><span class="result-val" style="color:var(--accent)">${d2_min}<span class="result-unit">mm</span></span></div>
+        <div class="result-row"><span class="result-label">公差幅</span><span class="result-val">${((parseFloat(d2_max)-parseFloat(d2_min))*1000).toFixed(0)}<span class="result-unit">μm</span></span></div>
+      </div>
+    </div>
+    ${judgeHtml}
+  `;
+}
+
+// ===== ⑨ 表面処理後寸法計算 =====
+const SURFACE_DB = {
+  cr_hard:    {name:'硬質クロムめっき',    std_um:20,  range:[5,100],   note:'片面厚み。外径は+2t、内径は−2t変化。硬度HV800〜1000。'},
+  cr_deco:    {name:'装飾クロムめっき',    std_um:0.5, range:[0.1,1],   note:'極薄。寸法変化はほぼ無視できますが精密部品は要注意。'},
+  ni_elect:   {name:'電解ニッケルめっき', std_um:10,  range:[5,30],    note:'均一性中程度。コーナー部に厚くつく傾向あり。'},
+  ni_less:    {name:'無電解ニッケルめっき',std_um:10, range:[5,25],    note:'均一性が高い。複雑形状でも均一に付着。HV500〜600。'},
+  zn:         {name:'亜鉛めっき',          std_um:8,   range:[5,25],    note:'主に防錆目的。寸法精度部品には不向き。'},
+  black_oxide:{name:'黒染め',              std_um:1,   range:[0.5,2],   note:'寸法変化は極小（1μm程度）。精密部品にも使用可能。'},
+  nitriding:  {name:'窒化処理',            std_um:5,   range:[2,10],    note:'表面膨張量。変形が出る場合があるため試作確認推奨。'},
+  carburizing:{name:'浸炭焼入れ',          std_um:50,  range:[20,100],  note:'変形・歪みが大きいため研削仕上げを前提に。'},
+  induction:  {name:'高周波焼入れ',        std_um:20,  range:[10,50],   note:'部分的な変形が起きる場合あり。焼入れ後の仕上げ代を確保。'},
+  anodize:    {name:'アルマイト',          std_um:10,  range:[5,25],    note:'アルミ専用。処理厚みの約50%が表面から成長、50%が内部浸透。'},
+  ticn:       {name:'TiCNコーティング',   std_um:3,   range:[2,5],     note:'工具用途が主。寸法変化は極小。'},
+  tin:        {name:'TiNコーティング',    std_um:2,   range:[1,4],     note:'工具用途が主。寸法変化は極小。'},
+  dlc:        {name:'DLCコーティング',    std_um:1,   range:[0.5,3],   note:'低摩擦・高硬度。寸法変化は極めて小さい。'},
+};
+
+function calcSurface() {
+  const type    = document.getElementById('sf-type').value;
+  const target  = parseFloat(document.getElementById('sf-target').value);
+  const dimType = document.getElementById('sf-dim-type').value;
+  const customT = parseFloat(document.getElementById('sf-thickness').value)||0;
+  const db      = SURFACE_DB[type]; if(!db) return;
+
+  const thickness_um = customT > 0 ? customT : db.std_um;
+  const thickness_mm = thickness_um / 1000;
+
+  // 寸法変化量（外径は+2t、内径は−2t、長さは+2t）
+  const delta_outer = thickness_mm * 2;
+  const delta_inner = -thickness_mm * 2;
+  const delta_len   = thickness_mm * 2;
+
+  let machiningDim = '—', deltaStr = '—', colorClass = 'badge-blue';
+  if (!isNaN(target)) {
+    if (dimType === 'outer') {
+      machiningDim = (target - delta_outer).toFixed(3);
+      deltaStr = `+${delta_outer.toFixed(3)}mm（+${thickness_um*2}μm）`;
+      colorClass = 'badge-amber';
+    } else if (dimType === 'inner') {
+      machiningDim = (target - delta_inner).toFixed(3);
+      deltaStr = `${delta_inner.toFixed(3)}mm（${-thickness_um*2}μm）`;
+      colorClass = 'badge-purple';
+    } else {
+      machiningDim = (target - delta_len).toFixed(3);
+      deltaStr = `+${delta_len.toFixed(3)}mm`;
+      colorClass = 'badge-blue';
+    }
+  }
+
+  document.getElementById('surface-result').innerHTML = `
+    <div class="card-title">${db.name}</div>
+    <div class="result-box" style="margin-bottom:12px">
+      <div class="result-row"><span class="result-label">標準めっき厚み</span><span class="result-val">${db.std_um}<span class="result-unit">μm</span></span></div>
+      <div class="result-row"><span class="result-label">使用厚み</span><span class="result-val" style="color:var(--accent)">${thickness_um}<span class="result-unit">μm</span></span></div>
+      <div class="result-row"><span class="result-label">適用厚み範囲</span><span class="result-val" style="font-size:14px">${db.range[0]}〜${db.range[1]}<span class="result-unit">μm</span></span></div>
+    </div>
+    ${!isNaN(target) ? `
+    <div class="result-box" style="margin-bottom:12px">
+      <div class="result-row"><span class="result-label">目標仕上がり寸法</span><span class="result-val">${target.toFixed(3)}<span class="result-unit">mm</span></span></div>
+      <div class="result-row"><span class="result-label">寸法変化量</span><span class="result-val"><span class="badge ${colorClass}">${deltaStr}</span></span></div>
+      <div class="result-row" style="background:var(--accent-l);border-radius:6px;padding:10px">
+        <span class="result-label" style="color:var(--accent);font-weight:700">加工前目標寸法</span>
+        <span class="result-val" style="color:var(--accent);font-size:22px">${machiningDim}<span class="result-unit">mm</span></span>
+      </div>
+    </div>` : ''}
+    <div class="alert alert-info">${db.note}</div>
+  `;
+}
+
+
 document.addEventListener('DOMContentLoaded', ()=>{
   calcTime(); calcFit(); calcTap(); calcRough(); calcForce(); calcCompare();
+  calcChatter(); calcThreadAcc(); calcSurface();
 });
 </script>
 </body>
