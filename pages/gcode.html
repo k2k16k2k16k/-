@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gコード生成 | NC Suite</title>
+<link rel="stylesheet" href="../css/common.css">
+<style>
+.gen-layout{display:grid;grid-template-columns:1fr 420px;gap:0;min-height:calc(100vh - 54px)}
+.gen-left{border-right:1px solid var(--border);overflow-y:auto}
+.gen-right{overflow-y:auto}
+.proc-tabs{display:flex;flex-wrap:wrap;gap:4px;padding:12px 16px;background:var(--bg2);border-bottom:1px solid var(--border)}
+.proc-tab{padding:6px 14px;font-size:12px;font-weight:700;border:1px solid var(--border);border-radius:20px;cursor:pointer;background:var(--bg1);color:var(--text2);transition:all .15s;font-family:var(--sans)}
+.proc-tab:hover{border-color:var(--accent);color:var(--accent)}
+.proc-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.mat-strip{background:var(--bg1);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.mat-strip .field{margin:0;min-width:120px}
+.form-body{padding:16px}
+.out-header{background:var(--bg2);border-bottom:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:10}
+.out-header-label{font-size:12px;font-weight:700;color:var(--text2)}
+.out-actions{margin-left:auto;display:flex;gap:5px;flex-wrap:wrap}
+.auto-badge{display:inline-block;background:var(--green-l);border:1px solid var(--green);color:var(--green);font-size:10px;padding:1px 6px;border-radius:4px;margin-left:6px;font-weight:700}
+.tpl-list{max-height:200px;overflow-y:auto}
+.tpl-item{padding:8px 10px;border-radius:var(--radius);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .1s}
+.tpl-item:hover{background:var(--bg2)}
+.tpl-item-name{flex:1;font-weight:600}
+.tpl-item-date{font-size:11px;color:var(--text3)}
+@media(max-width:900px){.gen-layout{grid-template-columns:1fr;grid-template-rows:1fr auto}}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a class="nav-logo" href="../index.html">⚙ NC Suite</a>
+  <div class="nav-links">
+    <a class="nav-link" href="../index.html">🏠 <span>ホーム</span></a>
+    <a class="nav-link active" href="gcode.html">📝 <span>Gコード生成</span></a>
+    <a class="nav-link" href="compound.html">🔗 <span>複合加工</span></a>
+    <a class="nav-link" href="tools.html">🔧 <span>工具登録</span></a>
+    <a class="nav-link" href="log.html">📋 <span>加工実績</span></a>
+    <a class="nav-link" href="calc.html">🧮 <span>計算ツール</span></a>
+    <a class="nav-link" href="drawing.html">📐 <span>図面読込</span></a>
+    <a class="nav-link" href="preview.html">🖥 <span>パスプレビュー</span></a>
+  </div>
+</nav>
+
+<div class="gen-layout">
+<!-- 左：入力 -->
+<div class="gen-left">
+  <!-- 素材・工具バー -->
+  <div class="mat-strip">
+    <div class="field"><label>素材</label>
+      <select id="mat" onchange="onMatChange()">
+        <option value="S45C">S45C</option><option value="S50C">S50C</option>
+        <option value="SS400">SS400</option><option value="SCM440">SCM440</option>
+        <option value="SKD11">SKD11</option><option value="SUS304">SUS304</option>
+        <option value="SUS316">SUS316</option><option value="A2017">A2017</option>
+        <option value="A5052">A5052</option><option value="A6061">A6061</option>
+        <option value="C3604">C3604</option><option value="CAC403">CAC403</option>
+        <option value="POM">POM</option><option value="PEEK">PEEK</option>
+      </select>
+    </div>
+    <div class="field"><label>工具材種</label>
+      <select id="toolmat" onchange="onMatChange()">
+        <option>超硬</option><option>サーメット</option><option>CBN</option><option>ハイス</option>
+      </select>
+    </div>
+    <div class="field" style="max-width:90px"><label>工具径(mm)</label>
+      <input type="number" id="tooldia" value="25" step="0.5" oninput="onMatChange()">
+    </div>
+    <div class="field" style="max-width:90px"><label>仕上げ</label>
+      <select id="finish" onchange="onMatChange()">
+        <option>荒削り</option><option>中削り</option><option>仕上げ</option>
+      </select>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="applyAuto()">⚡ 自動入力</button>
+  </div>
+  <!-- 推奨値表示 -->
+  <div id="mat-chips" style="padding:8px 16px;display:flex;gap:8px;flex-wrap:wrap;background:var(--bg1);border-bottom:1px solid var(--border);font-size:11px"></div>
+
+  <!-- 加工タブ -->
+  <div class="proc-tabs">
+    <button class="proc-tab active" onclick="switchProc('od',this)">外径</button>
+    <button class="proc-tab" onclick="switchProc('id',this)">内径</button>
+    <button class="proc-tab" onclick="switchProc('thread',this)">ねじ切り</button>
+    <button class="proc-tab" onclick="switchProc('groove',this)">溝・突切り</button>
+    <button class="proc-tab" onclick="switchProc('drill',this)">横穴ドリル</button>
+    <button class="proc-tab" onclick="switchProc('keyway',this)">キー溝</button>
+    <button class="proc-tab" onclick="switchProc('mill',this)">フライス</button>
+    <button class="proc-tab" onclick="switchProc('taper',this)">テーパー・R</button>
+  </div>
+
+  <div class="form-body">
+    <!-- テンプレート読み込み -->
+    <details style="margin-bottom:14px">
+      <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--accent)">💾 テンプレート</summary>
+      <div style="margin-top:10px">
+        <div class="tpl-list" id="tpl-list"></div>
+        <button class="btn btn-sm" style="margin-top:8px" onclick="saveTemplate()">現在の条件を保存</button>
+      </div>
+    </details>
+
+    <!-- 工具選択（登録工具から） -->
+    <div class="field" style="margin-bottom:14px">
+      <label>登録工具から選択（任意）</label>
+      <select id="tool-select" onchange="applyTool()">
+        <option value="">— 手動入力 —</option>
+      </select>
+    </div>
+
+    <!-- 外径 -->
+    <div id="proc-od" class="tab-panel active">
+      <div class="card-title">外径旋削</div>
+      <div class="grid-2">
+        <div class="field"><label>素材径 (mm)</label><input type="number" id="od-blank-d" placeholder="50"></div>
+        <div class="field"><label>素材長さ (mm)</label><input type="number" id="od-blank-l" placeholder="100"></div>
+        <div class="field"><label>仕上げ外径 (mm)</label><input type="number" id="od-fin-d" placeholder="45"></div>
+        <div class="field"><label>仕上げ長さ (mm)</label><input type="number" id="od-fin-l" placeholder="80"></div>
+      </div>
+      <div class="card-title" style="margin-top:12px">切削条件 <span class="auto-badge" id="badge-od" style="display:none">AUTO</span></div>
+      <div class="grid-3">
+        <div class="field"><label>回転数 (rpm)</label><input type="number" id="od-rpm" placeholder="1000"></div>
+        <div class="field"><label>送り (mm/rev)</label><input type="number" id="od-feed" placeholder="0.2" step="0.01"></div>
+        <div class="field"><label>切込み (mm)</label><input type="number" id="od-depth" placeholder="1.5" step="0.1"></div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="generate('od')">▶ Gコード生成</button>
+    </div>
+
+    <!-- 内径 -->
+    <div id="proc-id" class="tab-panel">
+      <div class="card-title">内径ボーリング</div>
+      <div class="grid-2">
+        <div class="field"><label>下穴径 (mm)</label><input type="number" id="id-pre-d" placeholder="20"></div>
+        <div class="field"><label>仕上げ内径 (mm)</label><input type="number" id="id-fin-d" placeholder="25"></div>
+        <div class="field"><label>ボーリング深さ (mm)</label><input type="number" id="id-depth" placeholder="40"></div>
+        <div class="field"><label>穴種別</label><select id="id-type"><option>通し穴</option><option>止まり穴</option></select></div>
+      </div>
+      <div class="card-title" style="margin-top:12px">切削条件 <span class="auto-badge" id="badge-id" style="display:none">AUTO</span></div>
+      <div class="grid-3">
+        <div class="field"><label>回転数 (rpm)</label><input type="number" id="id-rpm" placeholder="800"></div>
+        <div class="field"><label>送り (mm/rev)</label><input type="number" id="id-feed" placeholder="0.15" step="0.01"></div>
+        <div class="field"><label>切込み (mm)</label><input type="number" id="id-ap" placeholder="0.5" step="0.1"></div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="generate('id')">▶ Gコード生成</button>
+    </div>
+
+    <!-- ねじ切り -->
+    <div id="proc-thread" class="tab-panel">
+      <div class="card-title">ねじ切り</div>
+      <div class="grid-2">
+        <div class="field"><label>ねじ外径 (mm)</label><input type="number" id="th-d" placeholder="20"></div>
+        <div class="field"><label>ピッチ (mm)</label><input type="number" id="th-pitch" placeholder="1.5" step="0.25"></div>
+        <div class="field"><label>ねじ長さ (mm)</label><input type="number" id="th-len" placeholder="30"></div>
+        <div class="field"><label>種別</label><select id="th-type"><option>外ねじ(G32)</option><option>外ねじサイクル(G92)</option><option>内ねじ</option></select></div>
+      </div>
+      <div class="card-title" style="margin-top:12px">切削条件 <span class="auto-badge" id="badge-th" style="display:none">AUTO</span></div>
+      <div class="grid-3">
+        <div class="field"><label>回転数 (rpm)</label><input type="number" id="th-rpm" placeholder="500"></div>
+        <div class="field"><label>切込み回数</label><input type="number" id="th-pass" placeholder="5"></div>
+        <div class="field"><label>面取り (mm)</label><input type="number" id="th-cham" placeholder="1.5" step="0.5"></div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="generate('thread')">▶ Gコード生成</button>
+    </div>
+
+    <!-- 溝 -->
+    <div id="proc-groove" class="tab-panel">
+      <div class="card-title">溝入れ・突切り</div>
+      <div class="grid-2">
+        <div class="field"><label>溝幅 (mm)</label><input type="number" id="gr-w" placeholder="3" step="0.5"></div>
+        <div class="field"><label>溝深さ (mm)</label><input type="number" id="gr-d" placeholder="5"></div>
+        <div class="field"><label>X位置 (径mm)</label><input type="number" id="gr-x" placeholder="40"></div>
+        <div class="field"><label>Z位置 (mm)</label><input type="number" id="gr-z" placeholder="-30"></div>
+        <div class="field"><label>種別</label><select id="gr-type"><option>外径溝入れ</option><option>突切り</option><option>内径溝入れ</option></select></div>
+      </div>
+      <div class="card-title" style="margin-top:12px">切削条件 <span class="auto-badge" id="badge-gr" style="display:none">AUTO</span></div>
+      <div class="grid-2">
+        <div class="field"><label>回転数 (rpm)</label><input type="number" id="gr-rpm" placeholder="600"></div>
+        <div class="field"><label>送り (mm/rev)</label><input type="number" id="gr-feed" placeholder="0.05" step="0.01"></div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="generate('groove')">▶ Gコード生成</button>
+    </div>
+
+    <!-- ドリル -->
+    <div id="proc-drill" class="tab-panel">
+      <div class="card-title">横穴ドリル</div>
+      <div class="grid-2">
+        <div class="field"><label>ドリル径 (mm)</label><input type="number" id="dr-d" placeholder="8"></div>
+        <div class="field"><label>深さ (mm)</label><input type="number" id="dr-dep" placeholder="20"></div>
+        <div class="field"><label>穴数</label><input type="number" id="dr-num" placeholder="4"></div>
+        <div class="field"><label>PCD (mm)</label><input type="number" id="dr-pcd" placeholder="60"></div>
+        <div class="field"><label>穴種別</label><select id="dr-type"><option>端面穴</option><option>側面穴(Cアクシス)</option><option>等分割穴</option></select></div>
+      </div>
+      <div class="card-title" style="margin-top:12px">切削条件 <span class="auto-badge" id="badge-dr" style="display:none">AUTO</span></div>
+      <div class="grid-2">
+        <div class="field"><label>回転数 (rpm)</label><input type="number" id="dr-rpm" placeholder="1200"></div>
+        <div class="field"><label>送り (mm/rev)</label><input type="number" id="dr-feed" placeholder="0.1" step="0.01"></div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="generate('drill')">▶ Gコード生成</button>
+    </div>
+
+    <!-- キー溝 -->
+    <div id="proc-keyway" class="tab-panel">
+      <div class="card-title">キー溝加工</div>
+      <div class="grid-2">
+        <div class="field"><label>溝幅 (mm)</label><input type="number" id="kw-w" placeholder="6"></div>
+        <div class="field"><label>溝深さ (mm)</label><input type="number" id="kw-d" placeholder="3"></div>
+        <div class="field"><label>溝長さ (mm)</label><input type="number" id="kw-l" placeholder="40"></div>
+        <div class="field"><label>工具径 (mm)</label><input type="number" id="kw-td" placeholder="6"></div>
+      </div>
+      <div class="card-title" style="margin-top:12px">切削条件 <span class="auto-badge" id="badge-kw" style="display:none">AUTO</span></div>
+      <div class="grid-2">
+        <div class="field"><label>回転数 (rpm)</label><input type="number" id="kw-rpm" placeholder="800"></div>
+        <div class="field"><label>送り (mm/min)</label><input type="number" id="kw-feed" placeholder="100"></div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="generate('keyway')">▶ Gコード生成</button>
+    </div>
+
+    <!-- フライス -->
+    <div id="proc-mill" class="tab-panel">
+      <div class="card-title">フライス加工</div>
+      <div class="grid-2">
+        <div class="field"><label>種別</label><select id="ml-type"><option>平面フライス</option><option>輪郭フライス</option><option>ポケット加工</option><option>エンドミル溝加工</option></select></div>
+        <div class="field"><label>工具径 (mm)</label><input type="number" id="ml-td" placeholder="10"></div>
+        <div class="field"><label>加工幅 (mm)</label><input type="number" id="ml-w" placeholder="50"></div>
+        <div class="field"><label>加工深さ (mm)</label><input type="number" id="ml-d" placeholder="3"></div>
+      </div>
+      <div class="card-title" style="margin-top:12px">切削条件 <span class="auto-badge" id="badge-ml" style="display:none">AUTO</span></div>
+      <div class="grid-3">
+        <div class="field"><label>回転数 (rpm)</label><input type="number" id="ml-rpm" placeholder="1500"></div>
+        <div class="field"><label>送り (mm/min)</label><input type="number" id="ml-feed" placeholder="200"></div>
+        <div class="field"><label>切込み/パス(mm)</label><input type="number" id="ml-ap" placeholder="1" step="0.5"></div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="generate('mill')">▶ Gコード生成</button>
+    </div>
+
+    <!-- テーパー -->
+    <div id="proc-taper" class="tab-panel">
+      <div class="card-title">テーパー・R加工</div>
+      <div class="grid-2">
+        <div class="field"><label>種別</label><select id="tp-type"><option>テーパー旋削</option><option>R面取り</option><option>C面取り</option></select></div>
+        <div class="field"><label>開始径 (mm)</label><input type="number" id="tp-d1" placeholder="50"></div>
+        <div class="field"><label>終了径 (mm)</label><input type="number" id="tp-d2" placeholder="40"></div>
+        <div class="field"><label>長さ/R (mm)</label><input type="number" id="tp-len" placeholder="20"></div>
+      </div>
+      <div class="card-title" style="margin-top:12px">切削条件 <span class="auto-badge" id="badge-tp" style="display:none">AUTO</span></div>
+      <div class="grid-2">
+        <div class="field"><label>回転数 (rpm)</label><input type="number" id="tp-rpm" placeholder="900"></div>
+        <div class="field"><label>送り (mm/rev)</label><input type="number" id="tp-feed" placeholder="0.15" step="0.01"></div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="generate('taper')">▶ Gコード生成</button>
+    </div>
+  </div>
+</div>
+
+<!-- 右：出力 -->
+<div class="gen-right">
+  <div class="out-header">
+    <span class="out-header-label" id="out-label">出力</span>
+    <div class="out-actions">
+      <button class="btn btn-sm" onclick="copyText(lastGcode)">コピー</button>
+      <button class="btn btn-sm" onclick="dlGcode()">DL</button>
+      <button class="btn btn-sm btn-primary" onclick="saveToLog()">📋 実績保存</button>
+      <button class="btn btn-sm" onclick="sendToPreview()">🖥 プレビュー</button>
+    </div>
+  </div>
+  <div style="padding:14px">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchOut('gcode',this)">Gコード</button>
+      <button class="tab-btn" onclick="switchOut('exp',this)">解説</button>
+    </div>
+    <div id="out-gcode" class="tab-panel active">
+      <div style="text-align:center;padding:60px 20px;color:var(--text3);font-size:13px">
+        左側で寸法を入力して「▶ Gコード生成」を押してください
+      </div>
+    </div>
+    <div id="out-exp" class="tab-panel"></div>
+  </div>
+</div>
+</div>
+
+<script src="../js/common.js"></script>
+<script>
+let lastGcode = '';
+let currentProc = 'od';
+const PROC_NAMES = {od:'外径旋削',id:'内径ボーリング',thread:'ねじ切り',groove:'溝入れ・突切り',drill:'横穴ドリル',keyway:'キー溝',mill:'フライス',taper:'テーパー・R'};
+
+function v(id){ return (document.getElementById(id)||{}).value||''; }
+function fv(id,d){ return parseFloat(v(id))||d; }
+
+function switchProc(id, btn) {
+  document.querySelectorAll('.proc-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.tab-panel[id^="proc-"]').forEach(p=>p.classList.remove('active'));
+  document.getElementById('proc-'+id).classList.add('active');
+  currentProc = id;
+  loadToolsForProc(id);
+}
+
+function switchOut(tab, btn) {
+  document.querySelectorAll('.tab-btn').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.tab-panel:not([id^="proc-"])').forEach(p=>p.classList.remove('active'));
+  document.getElementById('out-'+tab).classList.add('active');
+}
+
+// 素材自動計算
+function onMatChange() {
+  const c = calcConditions(v('mat'), v('toolmat'), fv('tooldia',25), v('finish'));
+  if (!c) return;
+  document.getElementById('mat-chips').innerHTML =
+    `<span class="badge badge-blue">Vc: ${c.vc} m/min</span>`+
+    `<span class="badge badge-green">推奨: ${c.rpm} rpm</span>`+
+    `<span class="badge badge-amber">送り: ${c.feed} mm/rev</span>`+
+    `<span class="badge badge-blue">切込み: ${c.ap} mm</span>`;
+}
+
+function applyAuto() {
+  const c = calcConditions(v('mat'), v('toolmat'), fv('tooldia',25), v('finish'));
+  if (!c) return;
+  const sets=[
+    {rpm:'od-rpm',feed:'od-feed',ap:'od-depth',badge:'badge-od',min:false},
+    {rpm:'id-rpm',feed:'id-feed',ap:'id-ap',badge:'badge-id',min:false},
+    {rpm:'th-rpm',badge:'badge-th'},
+    {rpm:'gr-rpm',feed:'gr-feed',badge:'badge-gr'},
+    {rpm:'dr-rpm',feed:'dr-feed',badge:'badge-dr'},
+    {rpm:'kw-rpm',feed:'kw-feed',badge:'badge-kw',min:true},
+    {rpm:'ml-rpm',feed:'ml-feed',ap:'ml-ap',badge:'badge-ml',min:true},
+    {rpm:'tp-rpm',feed:'tp-feed',badge:'badge-tp'},
+  ];
+  sets.forEach(s=>{
+    const r=document.getElementById(s.rpm);
+    if(r){r.value=c.rpm;r.classList.add('ok')}
+    if(s.feed){const f=document.getElementById(s.feed);if(f){f.value=s.min?c.feedMin:c.feed;f.classList.add('ok')}}
+    if(s.ap){const a=document.getElementById(s.ap);if(a){a.value=c.ap;a.classList.add('ok')}}
+    const b=document.getElementById(s.badge);if(b)b.style.display='inline-block';
+  });
+  const tp=document.getElementById('th-pass');
+  if(tp){tp.value=v('finish')==='仕上げ'?8:v('finish')==='中削り'?6:5;tp.classList.add('ok')}
+  showToast('切削条件を自動入力しました');
+}
+
+// 工具登録と連動
+function loadToolsForProc(proc) {
+  const typeMap={od:'外径',id:'内径',thread:'ねじ切り',groove:'溝入れ',drill:'ドリル',keyway:'エンドミル',mill:'エンドミル',taper:'外径'};
+  const tools = TOOL_DB.getByType(typeMap[proc]||'');
+  const sel = document.getElementById('tool-select');
+  sel.innerHTML = '<option value="">— 手動入力 —</option>' +
+    tools.map(t=>`<option value="${t.id}">${t.no} ${t.name} (R${t.noseR||'—'})</option>`).join('');
+}
+
+function applyTool() {
+  const id = parseInt(document.getElementById('tool-select').value);
+  if (!id) return;
+  const t = TOOL_DB.getAll().find(t=>t.id===id); if (!t) return;
+
+  // T番をGコード生成に渡すためグローバルに保持
+  window.selectedTool = t;
+
+  // 工具材種・径を素材バーに反映
+  if (t.mat) {
+    const matEl = document.getElementById('toolmat');
+    const matMap = {'超硬（コーティング）':'超硬','サーメット':'サーメット','CBN':'CBN','ハイス（HSS）':'ハイス'};
+    const mapped = matMap[t.mat] || t.mat.split('（')[0];
+    Array.from(matEl.options).forEach(o => { if (o.value === mapped || o.text.includes(mapped)) matEl.value = o.value; });
+  }
+  if (t.dia) document.getElementById('tooldia').value = t.dia;
+
+  // 切削条件を自動計算して反映
+  const c = calcConditions(v('mat'), v('toolmat'), parseFloat(t.dia)||25, v('finish'));
+  if (c) {
+    const rpmMap   = {od:'od-rpm', id:'id-rpm', thread:'th-rpm', groove:'gr-rpm', drill:'dr-rpm', keyway:'kw-rpm', mill:'ml-rpm', taper:'tp-rpm'};
+    const feedMap  = {od:'od-feed',id:'id-feed', thread:null,     groove:'gr-feed',drill:'dr-feed',keyway:'kw-feed',mill:'ml-feed', taper:'tp-feed'};
+    const apMap    = {od:'od-depth',id:'id-ap',  thread:null,     groove:null,     drill:null,     keyway:null,    mill:'ml-ap',   taper:null};
+    const isMin    = {keyway:true, mill:true};
+
+    const rId = rpmMap[currentProc];
+    const fId = feedMap[currentProc];
+    const aId = apMap[currentProc];
+    if (rId) { const el=document.getElementById(rId); if(el){el.value=c.rpm; el.classList.add('ok');} }
+    if (fId) { const el=document.getElementById(fId); if(el){el.value=isMin[currentProc]?c.feedMin:c.feed; el.classList.add('ok');} }
+    if (aId) { const el=document.getElementById(aId); if(el){el.value=c.ap;   el.classList.add('ok');} }
+
+    // ねじ切り切込み回数
+    if (currentProc==='thread') {
+      const tp=document.getElementById('th-pass');
+      if(tp){tp.value=v('finish')==='仕上げ'?8:v('finish')==='中削り'?6:5; tp.classList.add('ok');}
+    }
+  }
+
+  // 面粗さ通知
+  const feedEl = document.getElementById(`${currentProc}-feed`);
+  const feedVal = parseFloat(feedEl?.value || feedEl?.placeholder || 0.2);
+  const r = calcRoughness(feedVal, t.noseR || 0.8);
+
+  // AUTO バッジ表示
+  const badgeId = {od:'badge-od',id:'badge-id',thread:'badge-th',groove:'badge-gr',drill:'badge-dr',keyway:'badge-kw',mill:'badge-ml',taper:'badge-tp'}[currentProc];
+  if (badgeId) document.getElementById(badgeId).style.display = 'inline-block';
+
+  onMatChange();
+  showToast(`${t.no} 適用 — ノーズR${t.noseR||0.8} → 理論Ra≈${r.ra}μm / ${c?c.rpm+'rpm':''}`, 'success');
+}
+
+// 工具番号を登録工具から自動解決
+function resolveToolNo(proc) {
+  const defaultMap = {od:'T0101',id:'T0303',thread:'T0505',groove:'T0404',drill:'T0606',keyway:'T0707',mill:'T0808',taper:'T0101'};
+  if (window.selectedTool && window.selectedTool.no) return window.selectedTool.no;
+  return defaultMap[proc] || 'T0101';
+}
+
+// Gコード生成エンジン（工具登録連動）
+function generate(proc) {
+  const matKey = v('mat'); const fin = v('finish');
+  const toolNo = resolveToolNo(proc);
+  let gcode='', steps=[], procName=PROC_NAMES[proc]||proc;
+
+  if(proc==='od'){
+    const bd=fv('od-blank-d',50),fd=fv('od-fin-d',45),fl=fv('od-fin-l',80);
+    const rpm=fv('od-rpm',1000),feed=fv('od-feed',.2),dep=fv('od-depth',1.5);
+    const passes=Math.max(1,Math.ceil((bd-fd)/2/dep));
+    const lines=[`(外径旋削 ${matKey} ${fin})`,`(${bd}→${fd}mm L:${fl}mm)`,`%`,`O0001`,
+      `G28 U0. W0.`,`G50 S3000`,`G96 S${rpm} M03`,`${toolNo} M08`,`G00 X${bd+2}. Z2.`];
+    for(let i=1;i<=passes;i++){
+      const cx=Math.max(fd,(bd-dep*2*i)).toFixed(3);
+      lines.push(`G00 X${cx}`,`G01 Z-${fl}. F${feed}`,`G00 X${bd+2}.`,`Z2.`);
+    }
+    lines.push(`G00 X${fd}.`,`G01 Z-${fl}. F${(feed*.6).toFixed(3)}`,`G00 X${bd+5}. Z100.`,`M05 M09`,`G28 U0. W0.`,`M30`,`%`);
+    gcode=lines.join('\n');
+    steps=[{t:'安全復帰・初期設定',d:'G28で原点復帰。G50で主軸最高回転数制限。G96で周速一定制御をON。'},
+      {t:`粗削り${passes}パス`,d:`切込み${dep}mmずつ${passes}回繰り返し。素材径${bd}mmから仕上げ径${fd}mmまで加工。`},
+      {t:'仕上げパス',d:`送り${(feed*.6).toFixed(3)}mm/revに落として最終寸法へ。`}];
+  }else if(proc==='id'){
+    const pd=fv('id-pre-d',20),fd=fv('id-fin-d',25),dep=fv('id-depth',40);
+    const rpm=fv('id-rpm',800),feed=fv('id-feed',.15),ap=fv('id-ap',.5);
+    const passes=Math.max(1,Math.ceil((fd-pd)/2/ap));
+    const type=v('id-type');
+    const lines=[`(内径ボーリング ${matKey})`,`(${pd}→${fd}mm 深:${dep}mm ${type})`,`%`,`O0002`,
+      `G28 U0. W0.`,`G96 S${rpm} M03`,`${toolNo} M08`,`G00 X${pd-1}. Z2.`];
+    for(let i=1;i<=passes;i++){
+      const cx=(pd+ap*2*i).toFixed(3);
+      lines.push(`G00 X${cx}`,`G01 Z-${dep}. F${feed}`,`G04 X0.3`,`G00 Z2.`);
+    }
+    lines.push(`G00 X${fd}.`,`G01 Z-${dep}. F${(feed*.7).toFixed(3)}`,`G00 Z100.`,`M05 M09`,`G28 U0. W0.`,`M30`,`%`);
+    gcode=lines.join('\n');
+    steps=[{t:'ボーリングバー挿入',d:`下穴径${pd}mmより細いX座標から開始。内側から外に向けて切り込みます。`},
+      {t:`粗ボーリング${passes}パス`,d:`G04ドウェルで底面の面粗度を改善。`},
+      {t:'仕上げ',d:`内径${fd}mmに仕上げ。止まり穴の場合は底面残代に注意。`}];
+  }else if(proc==='thread'){
+    const d=fv('th-d',20),pitch=fv('th-pitch',1.5),len=fv('th-len',30);
+    const rpm=fv('th-rpm',500),passes=fv('th-pass',5),cham=fv('th-cham',1.5);
+    const h=0.6495*pitch,ap=(h/passes).toFixed(4);
+    const lines=[`(ねじ切り M${d}×P${pitch} L:${len}mm)`,`%`,`O0003`,
+      `G28 U0. W0.`,`G97 S${rpm} M03`,`${toolNo} M08`,`G00 X${d+2}. Z5.`];
+    for(let i=1;i<=passes;i++){
+      const cx=(d-ap*2*i).toFixed(3);
+      lines.push(`G00 X${cx}`,`G32 Z-${(len+cham).toFixed(1)}. F${pitch}`,`G00 X${d+2}.`,`Z5.`);
+    }
+    lines.push(`G00 X${d+10}. Z100.`,`M05 M09`,`G28 U0. W0.`,`M30`,`%`);
+    gcode=lines.join('\n');
+    steps=[{t:'G97回転数一定',d:'ねじ切りはG97（回転数一定）必須。G96（周速一定）にするとピッチがずれます。'},
+      {t:`${passes}パス切削`,d:`山高さ${h.toFixed(3)}mmを${passes}パスに分けて徐々に切削。`},
+      {t:'F=ピッチ',d:`F${pitch}はねじのピッチそのものです。1回転でF値分Z方向に進みます。`}];
+  }else if(proc==='groove'){
+    const gw=fv('gr-w',3),gd=fv('gr-d',5),gx=fv('gr-x',40),gz=fv('gr-z',-30);
+    const rpm=fv('gr-rpm',600),feed=fv('gr-feed',.05);
+    const finX=(gx-gd*2).toFixed(3);
+    const lines=[`(${v('gr-type')} 幅:${gw}mm 深:${gd}mm)`,`%`,`O0004`,
+      `G28 U0. W0.`,`G97 S${rpm} M03`,`T0404 M08`,
+      `G00 X${gx+2}. Z${gz}.`,`G01 X${finX} F${feed}`,`G04 X0.5`,`G01 X${gx+2}.`];
+    if(gw>3){lines.push(`Z${(gz+gw/2).toFixed(2)}.`,`G01 X${finX}`,`G00 X${gx+2}.`,`Z${(gz-gw/2).toFixed(2)}.`,`G01 X${finX}`,`G00 X${gx+2}.`);}
+    lines.push(`Z100.`,`M05 M09`,`G28 U0. W0.`,`M30`,`%`);
+    gcode=lines.join('\n');
+    steps=[{t:'低送りで切り込み',d:`F${feed}mm/revは溝入れとして標準的な送り。速すぎると工具折損の原因。`},
+      {t:'ドウェル',d:'G04 X0.5で0.5秒停止。底面仕上げに効果的。'}];
+  }else if(proc==='drill'){
+    const dia=fv('dr-d',8),dep2=fv('dr-dep',20),num=fv('dr-num',4);
+    const rpm=fv('dr-rpm',1200),feed=fv('dr-feed',.1);
+    const div=360/num;
+    const lines=[`(横穴ドリル φ${dia}mm ${num}穴)`,`%`,`O0005`,
+      `G28 U0. W0.`,`G97 S${rpm} M03`,`${toolNo} M08`];
+    for(let i=0;i<num;i++){
+      lines.push(`G00 C${(div*i).toFixed(1)}`,`G83 Z-${dep2}. R2. Q${(dia*.3).toFixed(1)} F${feed}`,`G80`);
+    }
+    lines.push(`G00 Z100.`,`M05 M09`,`G28 U0. W0.`,`M30`,`%`);
+    gcode=lines.join('\n');
+    steps=[{t:'Cアクシス割り出し',d:`${num}穴を${div.toFixed(1)}°間隔で加工。G00 Cで主軸角度を指定。`},
+      {t:'G83深穴サイクル',d:`Q${(dia*.3).toFixed(1)}mmずつステップ送りで切り屑を排出しながら穴加工。`}];
+  }else if(proc==='keyway'){
+    const kw=fv('kw-w',6),kd=fv('kw-d',3),kl=fv('kw-l',40);
+    const rpm=fv('kw-rpm',800),feed=fv('kw-feed',100);
+    const passes=Math.ceil(kd/1.0);
+    const lines=[`(キー溝 幅${kw}mm 深${kd}mm L${kl}mm)`,`%`,`O0006`,
+      `G28 G91 X0. Y0. Z0.`,`G90 G54`,`G17`,`T01 M06`,`G43 H01`,`G97 S${rpm} M03`,
+      `G00 X0. Y0. Z5.`,`M08`];
+    for(let i=1;i<=passes;i++){
+      const cz=(-kd/passes*i).toFixed(3);
+      lines.push(`G01 Z${cz} F${Math.round(feed*.3)}`,`G01 X${kl}. F${feed}`,`G00 Z5.`,`X0.`);
+    }
+    lines.push(`Z100.`,`M05 M09`,`G28 G91 X0. Y0. Z0.`,`M30`,`%`);
+    gcode=lines.join('\n');
+    steps=[{t:'G43工具長補正',d:'H01で工具長補正を適用。正確なZ深さの基準となります。'},
+      {t:`${passes}深さパス`,d:`一度に${(kd/passes).toFixed(2)}mm切り込みます。Z進入はF${Math.round(feed*.3)}mm/minの遅い送りで。`}];
+  }else if(proc==='mill'){
+    const td=fv('ml-td',10),mw=fv('ml-w',50),md=fv('ml-d',3);
+    const rpm=fv('ml-rpm',1500),feed=fv('ml-feed',200),ap=fv('ml-ap',1);
+    const passes=Math.ceil(md/ap);
+    const lines=[`(${v('ml-type')} 幅${mw}mm 深${md}mm)`,`%`,`O0007`,
+      `G28 G91 X0. Y0. Z0.`,`G90 G54`,`G17`,`T01 M06`,`G43 H01`,`G97 S${rpm} M03`,
+      `G00 X${-td}. Y0. Z5.`,`M08`];
+    for(let i=1;i<=passes;i++){
+      const cz=(-ap*i).toFixed(3);
+      lines.push(`G01 Z${cz} F${Math.round(feed*.4)}`,`G01 X${mw+td}. F${feed}`,`G00 Z5.`,`X${-td}.`);
+    }
+    lines.push(`Z100.`,`M05 M09`,`G28 G91 X0. Y0. Z0.`,`M30`,`%`);
+    gcode=lines.join('\n');
+    steps=[{t:'加工開始位置',d:`工具径${td}mmを考慮しX${-td}から進入。材料外側から安全に切り込みます。`},
+      {t:`${passes}パス加工`,d:`1パスあたり${ap}mm切込み。Z進入はF${Math.round(feed*.4)}mm/minの遅い送りで。`}];
+  }else if(proc==='taper'){
+    const d1=fv('tp-d1',50),d2=fv('tp-d2',40),tlen=fv('tp-len',20);
+    const rpm=fv('tp-rpm',900),feed=fv('tp-feed',.15);
+    const type=v('tp-type');
+    const lines=[`(${type} D${d1}→D${d2} L/R:${tlen}mm)`,`%`,`O0008`,
+      `G28 U0. W0.`,`G96 S${rpm} M03`,`${toolNo} M08`,`G00 X${d1+2}. Z2.`,`G01 X${d1}. Z0. F${feed}`];
+    if(type==='テーパー旋削')lines.push(`G01 X${d2}. Z-${tlen}.`);
+    else if(type==='R面取り')lines.push(`G03 X${d1+tlen*2}. Z-${tlen}. R${tlen}.`);
+    else lines.push(`G01 X${d1+tlen*2}. Z-${tlen}.`);
+    lines.push(`G00 X${Math.max(d1,d2)+10}. Z100.`,`M05 M09`,`G28 U0. W0.`,`M30`,`%`);
+    gcode=lines.join('\n');
+    steps=[{t:'XZ同時補間',d:'G01でX・Z軸同時移動（テーパー）、G03で円弧補間（R面取り）。'},
+      {t:'G96周速一定',d:'径変化に追従して切削速度を一定に保ちます。'}];
+  }
+
+  lastGcode = gcode;
+  document.getElementById('out-label').textContent = procName + ' — 生成完了';
+
+  // Gコード表示
+  let n=1;
+  const html = gcode.split('\n').map(line=>{
+    const num=`<span class="lnum">${String(n++).padStart(4,' ')}</span>`;
+    let l=line.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+    if(l.startsWith('(')||l.startsWith(';')||l==='%') return num+`<span class="cm">${l}</span>`;
+    l=l.replace(/\b([GM]\d+)/g,(m,w)=>w.startsWith('G')?`<span class="gw">${w}</span>`:`<span class="mw">${w}</span>`);
+    l=l.replace(/([XZUWICKFSR])(-?[\d.]+)/g,(m,k,vv)=>`${k}<span class="vl">${vv}</span>`);
+    return num+l;
+  }).join('\n');
+  document.getElementById('out-gcode').innerHTML = `<div class="gcode">${html}</div>`;
+
+  // 解説表示
+  document.getElementById('out-exp').innerHTML = steps.map(s=>
+    `<div style="margin-bottom:10px;padding:10px 14px;background:var(--bg2);border-left:3px solid var(--accent);border-radius:0 var(--radius) var(--radius) 0">
+      <div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1px;margin-bottom:4px">${s.t}</div>
+      <div style="font-size:13px;color:var(--text)">${s.d}</div>
+    </div>`
+  ).join('');
+
+  switchOut('gcode', document.querySelector('.tab-btn'));
+}
+
+function dlGcode() {
+  if (!lastGcode) { showToast('先にGコードを生成してください','error'); return; }
+  downloadText(lastGcode, 'program.nc');
+}
+
+function saveToLog() {
+  if (!lastGcode) { showToast('先にGコードを生成してください','error'); return; }
+  const partNo = prompt('品番を入力してください:','');
+  if (!partNo) return;
+  LOG_DB.add({
+    partNo, procName: PROC_NAMES[currentProc]||currentProc,
+    material: v('mat'), gcode: lastGcode,
+    memo: v('finish') + '削り'
+  });
+  showToast('実績に保存しました');
+}
+
+function sendToPreview() {
+  if (!lastGcode) { showToast('先にGコードを生成してください','error'); return; }
+  sessionStorage.setItem('preview_gcode', lastGcode);
+  window.open('preview.html','_blank');
+}
+
+// テンプレート
+function saveTemplate() {
+  const name = prompt('テンプレート名:','');
+  if (!name) return;
+  const state = {};
+  document.querySelectorAll('input[id],select[id]').forEach(el=>{state[el.id]=el.value;});
+  TPL_DB.add({name, proc:currentProc, state, mat:v('mat')});
+  renderTemplates();
+  showToast('テンプレートを保存しました');
+}
+
+function renderTemplates() {
+  const list = TPL_DB.getAll();
+  document.getElementById('tpl-list').innerHTML = list.length
+    ? list.map(t=>`<div class="tpl-item">
+        <span class="tpl-item-name">📄 ${t.name}</span>
+        <span class="tpl-item-date">${fmtDate(t.createdAt).slice(0,10)}</span>
+        <button class="btn btn-sm" onclick="loadTemplate(${t.id})">読込</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteTemplate(${t.id})">削除</button>
+      </div>`).join('')
+    : '<div style="font-size:12px;color:var(--text3);padding:8px">テンプレートなし</div>';
+}
+
+function loadTemplate(id) {
+  const t = TPL_DB.getAll().find(t=>t.id===id); if(!t) return;
+  Object.entries(t.state||{}).forEach(([k,val])=>{
+    const el=document.getElementById(k); if(el) el.value=val;
+  });
+  // 加工タブを切り替え
+  const tab = document.querySelector(`.proc-tab[onclick*="'${t.proc}'"]`);
+  if(tab) switchProc(t.proc, tab);
+  showToast(`"${t.name}" を読み込みました`);
+}
+
+function deleteTemplate(id) {
+  TPL_DB.remove(id); renderTemplates(); showToast('削除しました');
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  onMatChange();
+  loadToolsForProc('od');
+  renderTemplates();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>加工実績ログ | NC Suite</title>
+<link rel="stylesheet" href="../css/common.css">
+<style>
+.log-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.log-form .full{grid-column:1/-1}
+.log-row td:first-child{white-space:nowrap;color:var(--text3);font-size:12px}
+.gcode-preview{max-height:200px;overflow-y:auto;font-size:11px}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;align-items:center;justify-content:center;padding:20px}
+.modal-bg.open{display:flex}
+.modal{background:var(--bg1);border-radius:var(--radius-lg);padding:24px;max-width:700px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow-md)}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+.export-row{display:flex;gap:8px;margin-bottom:16px}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a class="nav-logo" href="../index.html">⚙ NC Suite</a>
+  <div class="nav-links">
+    <a class="nav-link" href="../index.html">🏠 <span>ホーム</span></a>
+    <a class="nav-link" href="gcode.html">📝 <span>Gコード生成</span></a>
+    <a class="nav-link" href="compound.html">🔗 <span>複合加工</span></a>
+    <a class="nav-link" href="tools.html">🔧 <span>工具登録</span></a>
+    <a class="nav-link active" href="log.html">📋 <span>加工実績</span></a>
+    <a class="nav-link" href="calc.html">🧮 <span>計算ツール</span></a>
+    <a class="nav-link" href="drawing.html">📐 <span>図面読込</span></a>
+    <a class="nav-link" href="preview.html">🖥 <span>パスプレビュー</span></a>
+  </div>
+</nav>
+<div class="page">
+  <div class="page-title">📋 加工実績ログ</div>
+  <div class="page-sub">品番・素材・プログラムを記録。検索・再利用・CSV出力に対応。</div>
+
+  <!-- 手動登録フォーム -->
+  <details class="card" style="margin-bottom:16px">
+    <summary style="cursor:pointer;font-size:14px;font-weight:700;padding:4px 0">➕ 手動で実績を追加</summary>
+    <div style="margin-top:16px">
+      <div class="log-form">
+        <div class="field"><label>品番</label><input type="text" id="lf-partno" placeholder="例: ABC-001"></div>
+        <div class="field"><label>工程名</label><input type="text" id="lf-proc" placeholder="例: 外径旋削"></div>
+        <div class="field"><label>素材</label>
+          <select id="lf-mat">
+            <option value="">-</option>
+            <option>S45C</option><option>SS400</option><option>SCM440</option>
+            <option>SUS304</option><option>SUS316</option><option>A2017</option>
+            <option>A5052</option><option>A6061</option><option>C3604</option>
+          </select>
+        </div>
+        <div class="field"><label>プログラム番号</label><input type="text" id="lf-progno" placeholder="O1000"></div>
+        <div class="field"><label>加工時間 (min)</label><input type="number" id="lf-time" placeholder="15"></div>
+        <div class="field"><label>数量</label><input type="number" id="lf-qty" placeholder="1"></div>
+        <div class="field full"><label>メモ</label><input type="text" id="lf-memo" placeholder="注意事項・変更点など"></div>
+        <div class="field full"><label>Gコード（任意）</label><textarea id="lf-gcode" rows="4" placeholder="Gコードを貼り付けると保存できます" style="font-family:var(--mono);font-size:12px;resize:vertical"></textarea></div>
+      </div>
+      <button class="btn btn-primary" onclick="saveLog()">💾 実績を保存</button>
+    </div>
+  </details>
+
+  <!-- 検索・フィルター -->
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <input type="text" id="log-search" placeholder="品番・素材・工程で検索..." style="flex:1;min-width:200px;padding:8px 11px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:var(--sans)" oninput="renderLogs()">
+      <select id="log-mat-filter" style="padding:8px 11px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:var(--sans);background:var(--bg1)" onchange="renderLogs()">
+        <option value="">全素材</option>
+        <option>S45C</option><option>SS400</option><option>SCM440</option>
+        <option>SUS304</option><option>A2017</option><option>A5052</option><option>A6061</option>
+      </select>
+      <button class="btn btn-sm" onclick="exportCSV()">📥 CSV出力</button>
+      <button class="btn btn-sm btn-danger" onclick="clearAllLogs()">🗑 全削除</button>
+    </div>
+    <div id="log-stats" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
+  </div>
+
+  <!-- ログ一覧 -->
+  <div class="card" style="overflow-x:auto">
+    <div id="log-table"></div>
+  </div>
+</div>
+
+<!-- 詳細モーダル -->
+<div class="modal-bg" id="detail-modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="modal-title-text">実績詳細</span>
+      <button class="btn btn-sm" onclick="closeModal()">✕ 閉じる</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script src="../js/common.js"></script>
+<script>
+function saveLog() {
+  const partNo = document.getElementById('lf-partno').value.trim();
+  if (!partNo) { showToast('品番を入力してください', 'error'); return; }
+  LOG_DB.add({
+    partNo,
+    procName: document.getElementById('lf-proc').value,
+    material: document.getElementById('lf-mat').value,
+    progNo:   document.getElementById('lf-progno').value,
+    timeMin:  parseFloat(document.getElementById('lf-time').value)||0,
+    qty:      parseInt(document.getElementById('lf-qty').value)||1,
+    memo:     document.getElementById('lf-memo').value,
+    gcode:    document.getElementById('lf-gcode').value,
+  });
+  showToast('実績を保存しました');
+  ['lf-partno','lf-proc','lf-progno','lf-time','lf-qty','lf-memo','lf-gcode'].forEach(id => document.getElementById(id).value='');
+  renderLogs();
+}
+
+function renderLogs() {
+  const q = document.getElementById('log-search').value;
+  const matF = document.getElementById('log-mat-filter').value;
+  let logs = q ? LOG_DB.search(q) : LOG_DB.getAll();
+  if (matF) logs = logs.filter(l => l.material === matF);
+
+  const statsEl = document.getElementById('log-stats');
+  const total = LOG_DB.getAll().length;
+  const totalTime = LOG_DB.getAll().reduce((s,l)=>s+(l.timeMin||0),0);
+  statsEl.textContent = `全${total}件 / 累計加工時間: ${Math.round(totalTime)}分 / 表示中: ${logs.length}件`;
+
+  const el = document.getElementById('log-table');
+  if (!logs.length) {
+    el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);font-size:13px">実績がありません</div>';
+    return;
+  }
+  el.innerHTML = `<table class="tbl">
+    <thead><tr><th>日時</th><th>品番</th><th>工程</th><th>素材</th><th>Prog</th><th>時間</th><th>数量</th><th>メモ</th><th></th></tr></thead>
+    <tbody>${logs.map(l=>`<tr>
+      <td style="white-space:nowrap;font-size:12px;color:var(--text3)">${fmtDate(l.createdAt)}</td>
+      <td><strong>${l.partNo||'-'}</strong></td>
+      <td><span class="badge badge-blue">${l.procName||'-'}</span></td>
+      <td>${l.material||'-'}</td>
+      <td style="font-family:var(--mono);font-size:12px">${l.progNo||'-'}</td>
+      <td>${l.timeMin?l.timeMin+'min':'-'}</td>
+      <td>${l.qty||1}個</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)">${l.memo||''}</td>
+      <td><div style="display:flex;gap:4px">
+        <button class="btn btn-sm" onclick="showDetail(${l.id})">詳細</button>
+        <button class="btn btn-sm btn-danger" onclick="removeLog(${l.id})">削除</button>
+      </div></td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+function removeLog(id) {
+  if (!confirm('この実績を削除しますか？')) return;
+  LOG_DB.remove(id);
+  renderLogs();
+}
+
+function showDetail(id) {
+  const l = LOG_DB.getAll().find(l=>l.id===id); if(!l) return;
+  document.getElementById('modal-title-text').textContent = `📋 ${l.partNo||'実績'} - ${fmtDate(l.createdAt)}`;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="grid-2" style="margin-bottom:14px">
+      <div class="metric"><div class="metric-label">品番</div><div class="metric-value" style="font-size:18px">${l.partNo||'-'}</div></div>
+      <div class="metric"><div class="metric-label">工程</div><div class="metric-value" style="font-size:18px">${l.procName||'-'}</div></div>
+      <div class="metric"><div class="metric-label">素材</div><div class="metric-value" style="font-size:18px">${l.material||'-'}</div></div>
+      <div class="metric"><div class="metric-label">加工時間</div><div class="metric-value" style="font-size:18px">${l.timeMin||0}<span class="metric-unit">min</span></div></div>
+    </div>
+    ${l.memo ? `<div class="alert alert-info" style="margin-bottom:12px">📝 ${l.memo}</div>` : ''}
+    ${l.gcode ? `
+      <div style="margin-top:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <strong style="font-size:13px">保存Gコード</strong>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-sm" onclick="copyText(LOG_DB.getAll().find(l=>l.id==${l.id})?.gcode||'')">コピー</button>
+            <button class="btn btn-sm" onclick="downloadText(LOG_DB.getAll().find(l=>l.id==${l.id})?.gcode||'','${l.partNo||'program'}.nc')">DL</button>
+            <button class="btn btn-sm btn-primary" onclick="sendToPreview(${l.id})">🖥 プレビュー</button>
+          </div>
+        </div>
+        <div class="gcode gcode-preview">${escapeHtml(l.gcode)}</div>
+      </div>` : '<div class="alert alert-warn">Gコードは保存されていません</div>'}
+  `;
+  document.getElementById('detail-modal').classList.add('open');
+}
+
+function sendToPreview(id) {
+  const l = LOG_DB.getAll().find(l=>l.id===id); if(!l||!l.gcode) return;
+  sessionStorage.setItem('preview_gcode', l.gcode);
+  window.open('preview.html','_blank');
+}
+
+function closeModal() { document.getElementById('detail-modal').classList.remove('open'); }
+
+function escapeHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+function exportCSV() {
+  const logs = LOG_DB.getAll();
+  if (!logs.length) { showToast('実績がありません', 'error'); return; }
+  const header = ['日時','品番','工程','素材','プログラム番号','加工時間(min)','数量','メモ'];
+  const rows = logs.map(l=>[fmtDate(l.createdAt),l.partNo||'',l.procName||'',l.material||'',l.progNo||'',l.timeMin||0,l.qty||1,(l.memo||'').replace(/,/g,'，')]);
+  const csv = '\uFEFF' + [header,...rows].map(r=>r.join(',')).join('\n');
+  downloadText(csv, 'nc_log_' + new Date().toISOString().slice(0,10) + '.csv');
+  showToast('CSVを出力しました');
+}
+
+function clearAllLogs() {
+  if (!confirm('全実績を削除しますか？この操作は元に戻せません。')) return;
+  localStorage.removeItem('nc_logs');
+  renderLogs();
+  showToast('全実績を削除しました');
+}
+
+document.addEventListener('DOMContentLoaded', renderLogs);
+</script>
+</body>
+</html>

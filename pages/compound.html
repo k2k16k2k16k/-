@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>複合加工ビルダー | NC Suite</title>
+<link rel="stylesheet" href="../css/common.css">
+<style>
+body{margin:0}
+.comp-layout{display:grid;grid-template-columns:200px 1fr 380px;height:calc(100vh - 54px)}
+.palette-col{background:var(--bg1);border-right:1px solid var(--border);overflow-y:auto;padding:12px 10px}
+.palette-section{font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.palette-section:first-child{margin-top:0}
+.pi{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;margin-bottom:5px;cursor:grab;display:flex;align-items:center;gap:7px;transition:all .12s;user-select:none;font-size:12px}
+.pi:hover{border-color:var(--accent);background:var(--accent-l);transform:translateX(2px)}
+.pi:active{cursor:grabbing}
+.pi-icon{font-size:15px;width:20px;text-align:center;flex-shrink:0}
+.pi-name{font-weight:600;color:var(--text)}
+.pi-tool{font-size:10px;color:var(--text3)}
+.builder-col{overflow-y:auto;display:flex;flex-direction:column}
+.builder-top{background:var(--bg1);border-bottom:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:10;flex-shrink:0}
+.builder-top span{font-size:12px;font-weight:700;color:var(--text2);letter-spacing:1px;text-transform:uppercase}
+.settings-band{background:var(--bg2);border-bottom:1px solid var(--border);padding:10px 14px;display:flex;gap:10px;flex-wrap:wrap;flex-shrink:0}
+.settings-band .field{margin:0;min-width:110px}
+.settings-band label{font-size:10px}
+.settings-band select,.settings-band input{font-size:12px;padding:5px 8px}
+.steps-area{flex:1;padding:12px 14px;min-height:200px}
+.drop-hint{border:2px dashed var(--border);border-radius:var(--radius-lg);padding:30px;text-align:center;color:var(--text3);font-size:13px;transition:all .2s}
+.drop-hint.over{border-color:var(--accent);color:var(--accent);background:var(--accent-l)}
+.sc{background:var(--bg1);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;transition:all .15s}
+.sc:hover{border-color:var(--border2)}
+.sc.expanded .sc-body{display:block}
+.sc-head{display:flex;align-items:center;gap:7px;padding:8px 10px;cursor:pointer}
+.sc-handle{color:var(--text3);cursor:grab;font-size:14px;padding:1px 3px}
+.sc-num{background:var(--accent);color:#fff;font-size:10px;font-weight:700;width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sc-icon{font-size:14px;width:18px;text-align:center;flex-shrink:0}
+.sc-name{font-size:13px;font-weight:700;flex:1}
+.sc-tool{font-size:10px;color:var(--text3);background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border-radius:3px}
+.sc-acts{display:flex;gap:3px}
+.sact{background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:2px 5px;border-radius:3px;transition:all .12s}
+.sact:hover{color:var(--red);background:var(--red-l)}
+.sc-body{display:none;border-top:1px solid var(--border);padding:10px}
+.tc-row{background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:6px 10px;margin-bottom:6px;font-size:11px;color:var(--text2);display:flex;align-items:center;gap:6px}
+.tc-row code{color:var(--accent);font-family:var(--mono);font-size:11px}
+.out-col{overflow-y:auto;display:flex;flex-direction:column;border-left:1px solid var(--border)}
+.out-top{background:var(--bg2);border-bottom:1px solid var(--border);padding:9px 12px;display:flex;align-items:center;gap:7px;flex-shrink:0;position:sticky;top:0;z-index:10}
+.out-top span{font-size:11px;font-weight:700;color:var(--text2);letter-spacing:1px;text-transform:uppercase}
+.pinfo-band{background:var(--bg1);border-bottom:1px solid var(--border);padding:7px 12px;display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0}
+.pinfo-chip{font-size:11px;color:var(--text2)}
+.pinfo-chip b{color:var(--accent);font-family:var(--mono)}
+.out-tabs-bar{display:flex;border-bottom:1px solid var(--border);background:var(--bg1);flex-shrink:0}
+.out-tab{padding:6px 12px;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;cursor:pointer;color:var(--text2);background:none;border:none;border-bottom:2px solid transparent;font-family:var(--sans);transition:all .12s}
+.out-tab.active{color:var(--green);border-bottom-color:var(--green)}
+.gcode-area{font-family:var(--mono);font-size:11px;padding:12px;white-space:pre;overflow-x:auto;color:#22c55e;line-height:1.9;flex:1;background:#111318}
+.gcode-area .cm{color:#6b7280}.gcode-area .gw{color:#93c5fd}.gcode-area .mw{color:#fca5a5}.gcode-area .vl{color:#fcd34d}.gcode-area .lnum{color:#374151;user-select:none;margin-right:8px}.gcode-area .sc-cm{color:#a78bfa}
+.exp-area{padding:12px;flex:1;overflow-y:auto}
+.exp-card{margin-bottom:8px;padding:8px 10px;background:var(--bg2);border-left:3px solid var(--accent);border-radius:0 var(--radius) var(--radius) 0}
+.exp-card-t{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px}
+.exp-card-b{font-size:12px;color:var(--text)}
+.placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;color:var(--text3);gap:10px;padding:40px;text-align:center;font-size:12px}
+@media(max-width:1100px){.comp-layout{grid-template-columns:160px 1fr 320px}}
+@media(max-width:768px){.comp-layout{grid-template-columns:1fr;height:auto}}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a class="nav-logo" href="../index.html">⚙ NC Suite</a>
+  <div class="nav-links">
+    <a class="nav-link" href="../index.html">🏠 <span>ホーム</span></a>
+    <a class="nav-link" href="gcode.html">📝 <span>Gコード生成</span></a>
+    <a class="nav-link active" href="compound.html">🔗 <span>複合加工</span></a>
+    <a class="nav-link" href="tools.html">🔧 <span>工具登録</span></a>
+    <a class="nav-link" href="log.html">📋 <span>加工実績</span></a>
+    <a class="nav-link" href="calc.html">🧮 <span>計算ツール</span></a>
+    <a class="nav-link" href="drawing.html">📐 <span>図面読込</span></a>
+    <a class="nav-link" href="preview.html">🖥 <span>パスプレビュー</span></a>
+  </div>
+</nav>
+<div class="comp-layout">
+
+<!-- パレット -->
+<div class="palette-col">
+  <div class="palette-section">旋削</div>
+  <div class="pi" draggable="true" ondragstart="pdrag(event,'od')"><div class="pi-icon">🔄</div><div><div class="pi-name">外径旋削</div><div class="pi-tool">T0101</div></div></div>
+  <div class="pi" draggable="true" ondragstart="pdrag(event,'id')"><div class="pi-icon">⭕</div><div><div class="pi-name">内径ボーリング</div><div class="pi-tool">T0303</div></div></div>
+  <div class="pi" draggable="true" ondragstart="pdrag(event,'thread')"><div class="pi-icon">🔩</div><div><div class="pi-name">ねじ切り</div><div class="pi-tool">T0505</div></div></div>
+  <div class="pi" draggable="true" ondragstart="pdrag(event,'groove')"><div class="pi-icon">📏</div><div><div class="pi-name">溝入れ・突切り</div><div class="pi-tool">T0404</div></div></div>
+  <div class="pi" draggable="true" ondragstart="pdrag(event,'taper')"><div class="pi-icon">📐</div><div><div class="pi-name">テーパー・R</div><div class="pi-tool">T0101</div></div></div>
+  <div class="palette-section">ミーリング</div>
+  <div class="pi" draggable="true" ondragstart="pdrag(event,'drill')"><div class="pi-icon">🕳</div><div><div class="pi-name">横穴ドリル</div><div class="pi-tool">T0606</div></div></div>
+  <div class="pi" draggable="true" ondragstart="pdrag(event,'keyway')"><div class="pi-icon">🔑</div><div><div class="pi-name">キー溝</div><div class="pi-tool">T0707</div></div></div>
+  <div class="pi" draggable="true" ondragstart="pdrag(event,'mill')"><div class="pi-icon">⚙</div><div><div class="pi-name">フライス</div><div class="pi-tool">T0808</div></div></div>
+  <div class="palette-section">特殊</div>
+  <div class="pi" draggable="true" ondragstart="pdrag(event,'cutoff')"><div class="pi-icon">✂</div><div><div class="pi-name">突切り（完成）</div><div class="pi-tool">T0404</div></div></div>
+</div>
+
+<!-- ビルダー -->
+<div class="builder-col">
+  <div class="builder-top">
+    <span>工程リスト</span>
+    <div style="margin-left:auto;display:flex;gap:6px">
+      <button class="btn btn-sm" onclick="clearAll()">全消去</button>
+      <button class="btn btn-sm" onclick="saveToLog()">📋 実績保存</button>
+      <button class="btn btn-sm btn-primary" onclick="buildAll()">▶ Gコード生成</button>
+    </div>
+  </div>
+  <div class="settings-band">
+    <div class="field"><label>プログラム番号</label><input type="number" id="prog-no" value="1000" min="1" max="9999" style="width:90px"></div>
+    <div class="field"><label>素材</label>
+      <select id="mat-global">
+        <option value="S45C">S45C</option><option value="SS400">SS400</option>
+        <option value="SCM440">SCM440</option><option value="SUS304">SUS304</option>
+        <option value="A2017">A2017</option><option value="A5052">A5052</option><option value="A6061">A6061</option>
+      </select>
+    </div>
+    <div class="field"><label>工具交換</label>
+      <select id="tc-mode" onchange="render()">
+        <option value="auto">自動(M06)</option><option value="manual">手動(コメント)</option><option value="none">なし</option>
+      </select>
+    </div>
+    <div class="field"><label>サブプログラム開始番号</label><input type="number" id="sub-start" value="9001" min="9001" max="9999" style="width:80px"></div>
+  </div>
+  <div class="steps-area" id="steps-area" ondragover="aOver(event)" ondrop="aDrop(event)" ondragleave="aLeave(event)">
+    <div class="drop-hint" id="drop-hint">← パレットから工程をドラッグして追加<br><span style="font-size:11px;opacity:.6">追加後に各工程の詳細を入力</span></div>
+  </div>
+</div>
+
+<!-- 出力 -->
+<div class="out-col">
+  <div class="out-top">
+    <span id="out-lbl">複合プログラム出力</span>
+    <div style="margin-left:auto;display:flex;gap:4px">
+      <button class="btn btn-sm" onclick="doCopy()">コピー</button>
+      <button class="btn btn-sm" onclick="doDL()">DL(.nc)</button>
+      <button class="btn btn-sm" onclick="doPreview()">🖥 3D</button>
+    </div>
+  </div>
+  <div class="pinfo-band" id="pinfo" style="display:none"></div>
+  <div class="out-tabs-bar">
+    <button class="out-tab active" onclick="sOut('gcode',this)">Gコード</button>
+    <button class="out-tab" onclick="sOut('exp',this)">工程解説</button>
+  </div>
+  <div id="out-gcode" style="flex:1;display:flex;flex-direction:column">
+    <div class="placeholder"><div style="font-size:40px;opacity:.2">📋</div><p>工程を追加して<br>「▶ Gコード生成」を押してください</p></div>
+  </div>
+  <div class="exp-area" id="out-exp" style="display:none"></div>
+</div>
+
+</div>
+<script src="../js/common.js"></script>
+<script>
+const DEFS={
+  od:    {name:'外径旋削',    icon:'🔄',tool:'T0101',tname:'外径チップ'},
+  id:    {name:'内径ボーリング',icon:'⭕',tool:'T0303',tname:'内径バー'},
+  thread:{name:'ねじ切り',    icon:'🔩',tool:'T0505',tname:'ねじチップ'},
+  groove:{name:'溝入れ・突切り',icon:'📏',tool:'T0404',tname:'溝バイト'},
+  taper: {name:'テーパー・R', icon:'📐',tool:'T0101',tname:'外径チップ'},
+  drill: {name:'横穴ドリル',  icon:'🕳',tool:'T0606',tname:'ドリル'},
+  keyway:{name:'キー溝',      icon:'🔑',tool:'T0707',tname:'エンドミル'},
+  mill:  {name:'フライス',    icon:'⚙',tool:'T0808',tname:'フライス'},
+  cutoff:{name:'突切り(完成)',icon:'✂',tool:'T0404',tname:'突切りバイト'},
+};
+const DEF_P={
+  od:{blank_d:50,fin_d:45,fin_l:80,rpm:1000,feed:.2,depth:1.5},
+  id:{pre_d:20,fin_d:25,dep:40,type:'通し穴',rpm:800,feed:.15,ap:.5},
+  thread:{d:20,pitch:1.5,len:30,type:'外ねじ(G32)',rpm:500,pass:5,cham:1.5},
+  groove:{w:3,d:5,x:40,z:-30,type:'外径溝入れ',rpm:600,feed:.05},
+  taper:{type:'テーパー旋削',d1:50,d2:40,len:20,rpm:900,feed:.15},
+  drill:{d:8,dep:20,num:4,pcd:60,type:'等分割穴',rpm:1200,feed:.1},
+  keyway:{w:6,d:3,l:40,td:6,rpm:800,feed:100},
+  mill:{type:'平面フライス',td:10,w:50,d:3,rpm:1500,feed:200,ap:1},
+  cutoff:{x:30,z:-80,rpm:500,feed:.04},
+};
+
+let steps=[],idCnt=0,dragSrc=null,fromPalette=false,lastGcode='';
+
+function pdrag(e,t){fromPalette=true;dragSrc=null;e.dataTransfer.setData('type',t);e.dataTransfer.effectAllowed='copy';}
+function aOver(e){e.preventDefault();document.getElementById('drop-hint').classList.add('over');}
+function aLeave(e){document.getElementById('drop-hint').classList.remove('over');}
+function aDrop(e){e.preventDefault();document.getElementById('drop-hint').classList.remove('over');if(fromPalette){addStep(e.dataTransfer.getData('type'));}fromPalette=false;}
+function cdrag(e,id){fromPalette=false;dragSrc=id;e.dataTransfer.effectAllowed='move';setTimeout(()=>document.getElementById('sc-'+id)?.classList.add('drag'),0);}
+function cend(e,id){document.getElementById('sc-'+id)?.classList.remove('drag');document.querySelectorAll('.sc').forEach(c=>c.style.borderTop=c.style.borderBottom='');}
+function cover(e,id){e.preventDefault();if(!dragSrc||dragSrc===id||fromPalette)return;const c=document.getElementById('sc-'+id);const mid=c.getBoundingClientRect().top+c.offsetHeight/2;document.querySelectorAll('.sc').forEach(x=>{x.style.borderTop=x.style.borderBottom='';});if(e.clientY<mid)c.style.borderTop='2px solid var(--accent)';else c.style.borderBottom='2px solid var(--accent)';}
+function cdrop(e,tid){
+  e.preventDefault();e.stopPropagation();
+  document.querySelectorAll('.sc').forEach(c=>{c.style.borderTop=c.style.borderBottom='';});
+  if(fromPalette){const type=e.dataTransfer.getData('type');const ti=steps.findIndex(s=>s.id===tid);const c=document.getElementById('sc-'+tid);const before=e.clientY<c.getBoundingClientRect().top+c.offsetHeight/2;const ns=mkStep(type);steps.splice(before?ti:ti+1,0,ns);render();fromPalette=false;return;}
+  if(!dragSrc||dragSrc===tid)return;
+  const si=steps.findIndex(s=>s.id===dragSrc);const ti=steps.findIndex(s=>s.id===tid);const c=document.getElementById('sc-'+tid);const before=e.clientY<c.getBoundingClientRect().top+c.offsetHeight/2;const[m]=steps.splice(si,1);const ni=steps.findIndex(s=>s.id===tid);steps.splice(before?ni:ni+1,0,m);render();dragSrc=null;
+}
+function mkStep(t){return{id:++idCnt,type:t,params:JSON.parse(JSON.stringify(DEF_P[t]||{})),comment:'',expanded:true};}
+function addStep(t){steps.push(mkStep(t));render();}
+function removeStep(id){steps=steps.filter(s=>s.id!==id);render();}
+function clearAll(){if(steps.length&&!confirm('全工程を削除しますか？'))return;steps=[];render();}
+function toggleExp(id){const s=steps.find(s=>s.id===id);if(s){s.expanded=!s.expanded;render();}}
+
+function fHtml(id,lbl,v,type='number',step=''){
+  return `<div class="field"><label>${lbl}</label><input type="${type}" id="p-${id}" value="${v}" ${step?'step='+step:''} style="font-size:12px;padding:5px 7px" oninput="upd(${id.split('-')[0]},this)"></div>`;
+}
+function sHtml(id,lbl,v,opts){
+  return `<div class="field"><label>${lbl}</label><select id="p-${id}" style="font-size:12px;padding:5px 7px" onchange="upd(${id.split('-')[0]},this)">${opts.map(o=>`<option ${o===v?'selected':''}>${o}</option>`).join('')}</select></div>`;
+}
+
+function getForm(step){
+  const p=step.params,sid=step.id;
+  switch(step.type){
+    case 'od':return`<div class="grid-3">${fHtml(sid+'-blank_d','素材径(mm)',p.blank_d)}${fHtml(sid+'-fin_d','仕上げ外径',p.fin_d)}${fHtml(sid+'-fin_l','仕上げ長(mm)',p.fin_l)}${fHtml(sid+'-rpm','rpm',p.rpm)}${fHtml(sid+'-feed','送り(mm/rev)',p.feed,'.01')}${fHtml(sid+'-depth','切込み(mm)',p.depth,'.1')}</div>`;
+    case 'id':return`<div class="grid-3">${fHtml(sid+'-pre_d','下穴径',p.pre_d)}${fHtml(sid+'-fin_d','仕上げ内径',p.fin_d)}${fHtml(sid+'-dep','深さ(mm)',p.dep)}${fHtml(sid+'-rpm','rpm',p.rpm)}${fHtml(sid+'-feed','送り(mm/rev)',p.feed,'.01')}${fHtml(sid+'-ap','切込み(mm)',p.ap,'.1')}</div>`;
+    case 'thread':return`<div class="grid-3">${fHtml(sid+'-d','ねじ外径',p.d)}${fHtml(sid+'-pitch','ピッチ(mm)',p.pitch,'.25')}${fHtml(sid+'-len','長さ(mm)',p.len)}${fHtml(sid+'-rpm','rpm',p.rpm)}${fHtml(sid+'-pass','切込み回数',p.pass)}${fHtml(sid+'-cham','面取り(mm)',p.cham,'.5')}</div>`;
+    case 'groove':return`<div class="grid-3">${fHtml(sid+'-w','溝幅(mm)',p.w,'.5')}${fHtml(sid+'-d','溝深さ(mm)',p.d)}${fHtml(sid+'-x','X位置(径mm)',p.x)}${fHtml(sid+'-z','Z位置(mm)',p.z)}${fHtml(sid+'-rpm','rpm',p.rpm)}${fHtml(sid+'-feed','送り(mm/rev)',p.feed,'.01')}</div>`;
+    case 'taper':return`<div class="grid-3">${fHtml(sid+'-d1','開始径(mm)',p.d1)}${fHtml(sid+'-d2','終了径(mm)',p.d2)}${fHtml(sid+'-len','長さ/R(mm)',p.len)}${fHtml(sid+'-rpm','rpm',p.rpm)}${fHtml(sid+'-feed','送り(mm/rev)',p.feed,'.01')}</div>`;
+    case 'drill':return`<div class="grid-3">${fHtml(sid+'-d','ドリル径(mm)',p.d)}${fHtml(sid+'-dep','深さ(mm)',p.dep)}${fHtml(sid+'-num','穴数',p.num)}${fHtml(sid+'-pcd','PCD(mm)',p.pcd)}${fHtml(sid+'-rpm','rpm',p.rpm)}${fHtml(sid+'-feed','送り(mm/rev)',p.feed,'.01')}</div>`;
+    case 'keyway':return`<div class="grid-3">${fHtml(sid+'-w','溝幅(mm)',p.w)}${fHtml(sid+'-d','溝深さ(mm)',p.d)}${fHtml(sid+'-l','溝長さ(mm)',p.l)}${fHtml(sid+'-td','工具径(mm)',p.td)}${fHtml(sid+'-rpm','rpm',p.rpm)}${fHtml(sid+'-feed','送り(mm/min)',p.feed)}</div>`;
+    case 'mill':return`<div class="grid-3">${fHtml(sid+'-td','工具径(mm)',p.td)}${fHtml(sid+'-w','加工幅(mm)',p.w)}${fHtml(sid+'-d','加工深さ(mm)',p.d)}${fHtml(sid+'-rpm','rpm',p.rpm)}${fHtml(sid+'-feed','送り(mm/min)',p.feed)}${fHtml(sid+'-ap','切込み/パス',p.ap,'.5')}</div>`;
+    case 'cutoff':return`<div class="grid-2">${fHtml(sid+'-x','切断外径(mm)',p.x)}${fHtml(sid+'-z','Z位置(mm)',p.z)}${fHtml(sid+'-rpm','rpm',p.rpm)}${fHtml(sid+'-feed','送り(mm/rev)',p.feed,'.01')}</div>`;
+    default:return'';
+  }
+}
+function upd(id,el){const s=steps.find(s=>s.id===id);if(!s)return;const k=el.id.replace('p-'+id+'-','');s.params[k]=el.type==='number'?parseFloat(el.value)||0:el.value;}
+
+function render(){
+  const area=document.getElementById('steps-area');
+  document.getElementById('drop-hint').style.display=steps.length?'none':'block';
+  area.querySelectorAll('.sc,.tc-row').forEach(e=>e.remove());
+  const tcMode=document.getElementById('tc-mode').value;
+  let prev=null;
+  steps.forEach((s,i)=>{
+    const def=DEFS[s.type];
+    if(tcMode!=='none'&&prev&&prev!==def.tool){
+      const tc=document.createElement('div');tc.className='tc-row';
+      tc.innerHTML=tcMode==='auto'
+        ?`<code>T0000 M09 → ${def.tool} M06</code> 工具交換: ${prev}→${def.tool} (${def.tname})`
+        :`<span style="color:var(--text3)">(手動工具交換: ${prev}→${def.tool} / ${def.tname})</span>`;
+      area.appendChild(tc);
+    }
+    prev=def.tool;
+    const card=document.createElement('div');card.className='sc'+(s.expanded?' expanded':'');card.id='sc-'+s.id;
+    card.draggable=true;card.ondragstart=e=>cdrag(e,s.id);card.ondragend=e=>cend(e,s.id);card.ondragover=e=>cover(e,s.id);card.ondrop=e=>cdrop(e,s.id);
+    card.innerHTML=`
+      <div class="sc-head" onclick="toggleExp(${s.id})">
+        <div class="sc-handle" draggable="true" ondragstart="event.stopPropagation();cdrag(event,${s.id})">⠿</div>
+        <div class="sc-num">${i+1}</div><div class="sc-icon">${def.icon}</div>
+        <div class="sc-name">${def.name}</div>
+        <div class="sc-tool">${def.tool}</div>
+        <div class="sc-acts">
+          <button class="sact" onclick="event.stopPropagation();toggleExp(${s.id})">${s.expanded?'▲':'▼'}</button>
+          <button class="sact" onclick="event.stopPropagation();removeStep(${s.id})">✕</button>
+        </div>
+      </div>
+      <div class="sc-body">
+        ${getForm(s)}
+        <div class="field" style="margin-top:6px"><label>コメント（プログラム内に挿入）</label>
+          <input type="text" id="cmt-${s.id}" value="${s.comment}" placeholder="例: 外径荒削り後R注意" style="font-size:12px;padding:5px 7px" oninput="steps.find(x=>x.id==${s.id}).comment=this.value">
+        </div>
+      </div>`;
+    area.appendChild(card);
+  });
+}
+
+// Gコード生成
+function gp(p,k,d){const v=p[k];return(v!==undefined&&v!=='')?parseFloat(v)||0:d;}
+function genSub(s,subNo){
+  const p=s.params,def=DEFS[s.type];let lines=[],summary='';
+  switch(s.type){
+    case 'od':{const bd=gp(p,'blank_d',50),fd=gp(p,'fin_d',45),fl=gp(p,'fin_l',80),rpm=gp(p,'rpm',1000),feed=gp(p,'feed',.2),dep=gp(p,'depth',1.5);const ps=Math.max(1,Math.ceil((bd-fd)/2/dep));lines=[`(外径旋削 ${bd}→${fd}mm L:${fl}mm)`,`G96 S${rpm} M03`,`T0101 M08`,`G00 X${bd+2}. Z2.`];for(let i=1;i<=ps;i++){const cx=Math.max(fd,(bd-dep*2*i)).toFixed(3);lines.push(`G00 X${cx}`,`G01 Z-${fl}. F${feed}`,`G00 X${bd+2}.`,`Z2.`);}lines.push(`G00 X${fd}.`,`G01 Z-${fl}. F${(feed*.6).toFixed(3)}`,`G00 X${bd+5}. Z100.`,`M09`);summary=`外径${bd}→${fd}mm ${ps}パス`;break;}
+    case 'id':{const pd=gp(p,'pre_d',20),fd=gp(p,'fin_d',25),dep=gp(p,'dep',40),rpm=gp(p,'rpm',800),feed=gp(p,'feed',.15),ap=gp(p,'ap',.5);const ps=Math.max(1,Math.ceil((fd-pd)/2/ap));lines=[`(内径ボーリング ${pd}→${fd}mm 深:${dep}mm)`,`G96 S${rpm} M03`,`T0303 M08`,`G00 X${pd-1}. Z2.`];for(let i=1;i<=ps;i++){const cx=(pd+ap*2*i).toFixed(3);lines.push(`G00 X${cx}`,`G01 Z-${dep}. F${feed}`,`G04 X0.3`,`G00 Z2.`);}lines.push(`G00 X${fd}.`,`G01 Z-${dep}. F${(feed*.7).toFixed(3)}`,`G00 Z100.`,`M09`);summary=`内径${pd}→${fd}mm ${ps}パス`;break;}
+    case 'thread':{const d=gp(p,'d',20),pitch=gp(p,'pitch',1.5),len=gp(p,'len',30),rpm=gp(p,'rpm',500),ps=gp(p,'pass',5),cham=gp(p,'cham',1.5);const h=0.6495*pitch,ap=(h/ps).toFixed(4);lines=[`(ねじ切り M${d}×P${pitch})`,`G97 S${rpm} M03`,`T0505 M08`,`G00 X${d+2}. Z5.`];for(let i=1;i<=ps;i++){const cx=(d-ap*2*i).toFixed(3);lines.push(`G00 X${cx}`,`G32 Z-${(len+cham).toFixed(1)}. F${pitch}`,`G00 X${d+2}.`,`Z5.`);}lines.push(`G00 X${d+10}. Z100.`,`M09`);summary=`M${d}×P${pitch} L:${len}mm`;break;}
+    case 'groove':{const gw=gp(p,'w',3),gd=gp(p,'d',5),gx=gp(p,'x',40),gz=gp(p,'z',-30),rpm=gp(p,'rpm',600),feed=gp(p,'feed',.05);const finX=(gx-gd*2).toFixed(3);lines=[`(溝入れ 幅:${gw}mm 深:${gd}mm)`,`G97 S${rpm} M03`,`T0404 M08`,`G00 X${gx+2}. Z${gz}.`,`G01 X${finX} F${feed}`,`G04 X0.5`,`G01 X${gx+2}.`];if(gw>3){lines.push(`Z${(gz+gw/2).toFixed(2)}.`,`G01 X${finX}`,`G00 X${gx+2}.`,`Z${(gz-gw/2).toFixed(2)}.`,`G01 X${finX}`,`G00 X${gx+2}.`);}lines.push(`Z100.`,`M09`);summary=`溝幅${gw}mm 深${gd}mm`;break;}
+    case 'taper':{const d1=gp(p,'d1',50),d2=gp(p,'d2',40),tl=gp(p,'len',20),rpm=gp(p,'rpm',900),feed=gp(p,'feed',.15);lines=[`(テーパー D${d1}→D${d2} L:${tl}mm)`,`G96 S${rpm} M03`,`T0101 M08`,`G00 X${d1+2}. Z2.`,`G01 X${d1}. Z0. F${feed}`,`G01 X${d2}. Z-${tl}.`,`G00 X${Math.max(d1,d2)+10}. Z100.`,`M09`];summary=`テーパ D${d1}→D${d2}mm`;break;}
+    case 'drill':{const dia=gp(p,'d',8),dep=gp(p,'dep',20),num=gp(p,'num',4),rpm=gp(p,'rpm',1200),feed=gp(p,'feed',.1);const div=360/num;lines=[`(横穴ドリル φ${dia}mm ${num}穴)`,`G97 S${rpm} M03`,`T0606 M08`];for(let i=0;i<num;i++){lines.push(`G00 C${(div*i).toFixed(1)}`,`G83 Z-${dep}. R2. Q${(dia*.3).toFixed(1)} F${feed}`,`G80`);}lines.push(`G00 Z100.`,`M09`);summary=`φ${dia}mm×${num}穴 深${dep}mm`;break;}
+    case 'keyway':{const kw=gp(p,'w',6),kd=gp(p,'d',3),kl=gp(p,'l',40),rpm=gp(p,'rpm',800),feed=gp(p,'feed',100);const ps=Math.ceil(kd/1.0);lines=[`(キー溝 幅${kw}mm 深${kd}mm L${kl}mm)`,`G97 S${rpm} M03`,`T0707 M06`,`G43 H07`,`G00 X0. Y0. Z5.`,`M08`];for(let i=1;i<=ps;i++){const cz=(-kd/ps*i).toFixed(3);lines.push(`G01 Z${cz} F${Math.round(feed*.3)}`,`G01 X${kl}. F${feed}`,`G00 Z5.`,`X0.`);}lines.push(`Z100.`,`M09`);summary=`キー溝 幅${kw}mm 深${kd}mm`;break;}
+    case 'mill':{const td=gp(p,'td',10),mw=gp(p,'w',50),md=gp(p,'d',3),rpm=gp(p,'rpm',1500),feed=gp(p,'feed',200),ap=gp(p,'ap',1);const ps=Math.ceil(md/ap);lines=[`(フライス 幅${mw}mm 深${md}mm)`,`G97 S${rpm} M03`,`T0808 M06`,`G43 H08`,`G00 X${-td}. Y0. Z5.`,`M08`];for(let i=1;i<=ps;i++){const cz=(-ap*i).toFixed(3);lines.push(`G01 Z${cz} F${Math.round(feed*.4)}`,`G01 X${mw+td}. F${feed}`,`G00 Z5.`,`X${-td}.`);}lines.push(`Z100.`,`M09`);summary=`フライス 幅${mw}mm 深${md}mm`;break;}
+    case 'cutoff':{const x=gp(p,'x',30),z=gp(p,'z',-80),rpm=gp(p,'rpm',500),feed=gp(p,'feed',.04);lines=[`(突切り X${x}. Z${z}.)`,`G97 S${rpm} M03`,`T0404 M08`,`G00 X${x+2}. Z${z}.`,`G01 X0. F${feed}`,`G04 X0.5`,`G00 X${x+5}. Z100.`,`M09`];summary=`突切り X${x}mm`;break;}
+  }
+  return{lines,summary};
+}
+
+function buildAll(){
+  if(!steps.length){showToast('工程を追加してください','error');return;}
+  const progNo=parseInt(document.getElementById('prog-no').value)||1000;
+  const mat=document.getElementById('mat-global').value;
+  const tcMode=document.getElementById('tc-mode').value;
+  const subStart=parseInt(document.getElementById('sub-start').value)||9001;
+  let mainLines=[`%`,`O${String(progNo).padStart(4,'0')}`,`(複合加工プログラム)`,`(素材: ${mat})`,`(工程数: ${steps.length})`,`G28 U0. W0.`,`G40 G80`];
+  let subs=[],expCards=[],prevTool=null;
+  steps.forEach((s,i)=>{
+    const def=DEFS[s.type],subNo=subStart+i;
+    const r=genSub(s,subNo);
+    if(tcMode!=='none'&&prevTool&&prevTool!==def.tool){
+      if(tcMode==='auto')mainLines.push(`(工具交換: ${prevTool}→${def.tool})`,`T0000`,`M06`,`${def.tool}`);
+      else mainLines.push(`(★工具交換: ${prevTool}→${def.tool} / ${def.tname})`);
+    }
+    prevTool=def.tool;
+    if(s.comment)mainLines.push(`(工程${i+1}: ${s.comment})`);
+    mainLines.push(`(工程${i+1}: ${def.name} - ${r.summary})`,`M98 P${subNo}`);
+    subs.push([``,`O${subNo} (${def.name})`,...r.lines,`G28 U0. W0.`,`M99`].join('\n'));
+    expCards.push({title:`工程${i+1}: ${def.icon} ${def.name}`,body:`サブ O${subNo} / ${def.tool} (${def.tname})<br>${r.summary}${s.comment?'<br>メモ: '+s.comment:''}`});
+  });
+  mainLines.push(`(全工程完了)`,`G28 U0. W0.`,`M05`,`M30`,``,`(======= サブプログラム =======)`);
+  const full=[...mainLines,...subs,`%`].join('\n');
+  lastGcode=full;
+
+  // プログラム情報
+  const pi=document.getElementById('pinfo');pi.style.display='flex';
+  pi.innerHTML=`<span class="pinfo-chip">メイン: <b>O${String(progNo).padStart(4,'0')}</b></span><span class="pinfo-chip">工程数: <b>${steps.length}</b></span><span class="pinfo-chip">サブ: <b>O${subStart}〜O${subStart+steps.length-1}</b></span>`;
+
+  // Gコード表示
+  let n=1;
+  const html=full.split('\n').map(line=>{
+    const num=`<span class="lnum">${String(n++).padStart(4,' ')}</span>`;
+    let l=line.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+    if(l.startsWith('(')||l===`%`) return num+`<span class="${l.includes('工程')||l.includes('サブ')||l.includes('O')?'sc-cm':'cm'}">${l}</span>`;
+    l=l.replace(/\b([GM]\d+)/g,(m,w)=>w.startsWith('G')?`<span class="gw">${w}</span>`:`<span class="mw">${w}</span>`);
+    l=l.replace(/([XZUWICKFSRCPQR])(-?[\d.]+)/g,(m,k,v)=>`${k}<span class="vl">${v}</span>`);
+    return num+l;
+  }).join('\n');
+  document.getElementById('out-gcode').innerHTML=`<div class="gcode-area">${html}</div>`;
+
+  // 解説
+  document.getElementById('out-exp').innerHTML=expCards.map(c=>`<div class="exp-card"><div class="exp-card-t">${c.title}</div><div class="exp-card-b">${c.body}</div></div>`).join('');
+  document.getElementById('out-lbl').textContent=`複合 O${progNo} — ${steps.length}工程`;
+}
+
+function sOut(tab,btn){document.querySelectorAll('.out-tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');document.getElementById('out-gcode').style.display=tab==='gcode'?'flex':'none';document.getElementById('out-exp').style.display=tab==='exp'?'block':'none';}
+function doCopy(){if(!lastGcode){showToast('先に生成してください','error');return;}copyText(lastGcode);}
+function doDL(){if(!lastGcode){showToast('先に生成してください','error');return;}downloadText(lastGcode,`O${document.getElementById('prog-no').value||1000}_compound.nc`);}
+function doPreview(){if(!lastGcode){showToast('先に生成してください','error');return;}sessionStorage.setItem('preview_gcode',lastGcode);window.open('preview.html','_blank');}
+function saveToLog(){if(!lastGcode){showToast('先に生成してください','error');return;}const p=prompt('品番:','');if(!p)return;LOG_DB.add({partNo:p,procName:'複合加工 '+steps.length+'工程',material:document.getElementById('mat-global').value,gcode:lastGcode,memo:'複合加工ビルダーで生成'});showToast('実績に保存しました');}
+
+document.addEventListener('DOMContentLoaded',render);
+</script>
+</body>
+</html>

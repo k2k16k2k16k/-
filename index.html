@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NC Tool Suite</title>
+<link rel="stylesheet" href="css/common.css">
+<style>
+.hero{background:linear-gradient(135deg,#eff4ff 0%,#f5f6f8 100%);border:1px solid var(--border);border-radius:var(--radius-lg);padding:32px 28px;margin-bottom:24px;display:flex;align-items:center;gap:24px}
+.hero-icon{font-size:52px;flex-shrink:0}
+.hero h1{font-size:24px;font-weight:700;margin-bottom:6px}
+.hero p{color:var(--text2);font-size:14px;line-height:1.7}
+.menu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:24px}
+.menu-card{background:var(--bg1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;text-decoration:none;color:var(--text);transition:all .2s;box-shadow:var(--shadow);display:block}
+.menu-card:hover{border-color:var(--accent);box-shadow:var(--shadow-md);transform:translateY(-2px)}
+.menu-icon{font-size:28px;margin-bottom:10px}
+.menu-name{font-size:15px;font-weight:700;margin-bottom:4px}
+.menu-desc{font-size:12px;color:var(--text2);line-height:1.6}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:24px}
+.recent-section{margin-bottom:24px}
+.recent-title{font-size:14px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.empty-state{text-align:center;padding:32px;color:var(--text3);font-size:13px}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a class="nav-logo" href="index.html">⚙ NC Suite</a>
+  <div class="nav-links">
+    <a class="nav-link active" href="index.html">🏠 <span>ホーム</span></a>
+    <a class="nav-link" href="pages/gcode.html">📝 <span>Gコード生成</span></a>
+    <a class="nav-link" href="pages/compound.html">🔗 <span>複合加工</span></a>
+    <a class="nav-link" href="pages/tools.html">🔧 <span>工具登録</span></a>
+    <a class="nav-link" href="pages/log.html">📋 <span>加工実績</span></a>
+    <a class="nav-link" href="pages/calc.html">🧮 <span>計算ツール</span></a>
+    <a class="nav-link" href="pages/drawing.html">📐 <span>図面読み込み</span></a>
+    <a class="nav-link" href="pages/preview.html">🖥 <span>パスプレビュー</span></a>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="hero">
+    <div class="hero-icon">⚙</div>
+    <div>
+      <h1>NC Tool Suite</h1>
+      <p>FANUC対応 旋盤・マシニングGコード生成・管理システム<br>APIキー不要・完全ブラウザ動作・データはすべてローカル保存</p>
+    </div>
+  </div>
+
+  <div class="stats-row" id="stats-row">
+    <div class="metric"><div class="metric-label">加工実績件数</div><div class="metric-value" id="stat-logs">0<span class="metric-unit">件</span></div></div>
+    <div class="metric"><div class="metric-label">登録工具数</div><div class="metric-value" id="stat-tools">0<span class="metric-unit">本</span></div></div>
+    <div class="metric"><div class="metric-label">保存テンプレート</div><div class="metric-value" id="stat-tpls">0<span class="metric-unit">件</span></div></div>
+    <div class="metric"><div class="metric-label">対応素材</div><div class="metric-value">15<span class="metric-unit">種</span></div></div>
+  </div>
+
+  <div class="menu-grid">
+    <a class="menu-card" href="pages/gcode.html">
+      <div class="menu-icon">📝</div>
+      <div class="menu-name">Gコード生成</div>
+      <div class="menu-desc">外径・内径・ねじ切り・溝・ドリル・キー溝・フライス・テーパー。切削条件自動計算付き。</div>
+    </a>
+    <a class="menu-card" href="pages/compound.html">
+      <div class="menu-icon">🔗</div>
+      <div class="menu-name">複合加工ビルダー</div>
+      <div class="menu-desc">複数工程をドラッグ&ドロップで並べて1本のプログラムに。サブプログラム自動採番。</div>
+    </a>
+    <a class="menu-card" href="pages/tools.html">
+      <div class="menu-icon">🔧</div>
+      <div class="menu-name">工具登録</div>
+      <div class="menu-desc">使用工具を登録・管理。コード生成と連動。工具番号・材種・ノーズR・寿命を記録。</div>
+    </a>
+    <a class="menu-card" href="pages/log.html">
+      <div class="menu-icon">📋</div>
+      <div class="menu-name">加工実績ログ</div>
+      <div class="menu-desc">品番・素材・工程・条件を記録。過去のプログラムを検索・再利用。</div>
+    </a>
+    <a class="menu-card" href="pages/calc.html">
+      <div class="menu-icon">🧮</div>
+      <div class="menu-name">計算ツール群</div>
+      <div class="menu-desc">加工時間見積り・公差・はめあい・ねじ下穴・面粗さ・切削負荷・条件比較。</div>
+    </a>
+    <a class="menu-card" href="pages/drawing.html">
+      <div class="menu-icon">📐</div>
+      <div class="menu-name">図面読み込み（DXF）</div>
+      <div class="menu-desc">JW_CAD等のDXFファイルを読み込み、寸法を自動抽出してGコードを生成。</div>
+    </a>
+    <a class="menu-card" href="pages/preview.html">
+      <div class="menu-icon">🖥</div>
+      <div class="menu-name">パスプレビュー</div>
+      <div class="menu-desc">GコードをWebGL(Three.js)で3D可視化。工具軌跡・干渉確認。</div>
+    </a>
+  </div>
+
+  <div class="recent-section">
+    <div class="recent-title">📋 最近の加工実績</div>
+    <div class="card">
+      <div id="recent-logs"><div class="empty-state">まだ実績がありません。Gコード生成後に「実績保存」すると記録されます。</div></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/common.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('stat-logs').innerHTML  = LOG_DB.getAll().length + '<span class="metric-unit">件</span>';
+  document.getElementById('stat-tools').innerHTML = TOOL_DB.getAll().length + '<span class="metric-unit">本</span>';
+  document.getElementById('stat-tpls').innerHTML  = TPL_DB.getAll().length + '<span class="metric-unit">件</span>';
+
+  const logs = LOG_DB.getAll().slice(0, 5);
+  if (logs.length) {
+    document.getElementById('recent-logs').innerHTML =
+      `<table class="tbl">
+        <thead><tr><th>日時</th><th>品番</th><th>工程</th><th>素材</th><th>メモ</th></tr></thead>
+        <tbody>${logs.map(l => `<tr>
+          <td style="white-space:nowrap;color:var(--text3)">${fmtDate(l.createdAt)}</td>
+          <td><strong>${l.partNo||'-'}</strong></td>
+          <td><span class="badge badge-blue">${l.procName||'-'}</span></td>
+          <td>${l.material||'-'}</td>
+          <td style="color:var(--text2)">${l.memo||''}</td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+  }
+});
+</script>
+</body>
+</html>

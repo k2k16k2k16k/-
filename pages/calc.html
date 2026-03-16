@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>計算ツール | NC Suite</title>
+<link rel="stylesheet" href="../css/common.css">
+<style>
+.calc-layout{display:grid;grid-template-columns:200px 1fr;gap:0;min-height:calc(100vh - 100px)}
+.calc-menu{background:var(--bg1);border-right:1px solid var(--border);padding:16px 12px}
+.calc-menu-item{padding:10px 12px;border-radius:var(--radius);font-size:13px;font-weight:500;cursor:pointer;margin-bottom:4px;transition:all .15s;color:var(--text2);display:flex;align-items:center;gap:8px}
+.calc-menu-item:hover{background:var(--bg2);color:var(--text)}
+.calc-menu-item.active{background:var(--accent-l);color:var(--accent);font-weight:700}
+.calc-content{padding:24px}
+.result-box{background:var(--bg2);border-radius:var(--radius-lg);padding:18px;margin-top:16px}
+.result-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
+.result-row:last-child{border-bottom:none}
+.result-label{font-size:13px;color:var(--text2)}
+.result-val{font-size:18px;font-weight:700;color:var(--text);font-family:var(--mono)}
+.result-unit{font-size:12px;color:var(--text3);margin-left:4px;font-family:var(--sans)}
+.compare-table th,.compare-table td{padding:10px 14px;text-align:center;border:1px solid var(--border)}
+.compare-table th{background:var(--bg2);font-weight:600;font-size:12px}
+.compare-best{background:var(--green-l);color:var(--green);font-weight:700}
+@media(max-width:768px){.calc-layout{grid-template-columns:1fr;grid-template-rows:auto 1fr}.calc-menu{display:flex;flex-wrap:wrap;gap:4px;border-right:none;border-bottom:1px solid var(--border)}.calc-menu-item{padding:6px 10px;font-size:12px}}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a class="nav-logo" href="../index.html">⚙ NC Suite</a>
+  <div class="nav-links">
+    <a class="nav-link" href="../index.html">🏠 <span>ホーム</span></a>
+    <a class="nav-link" href="gcode.html">📝 <span>Gコード生成</span></a>
+    <a class="nav-link" href="compound.html">🔗 <span>複合加工</span></a>
+    <a class="nav-link" href="tools.html">🔧 <span>工具登録</span></a>
+    <a class="nav-link" href="log.html">📋 <span>加工実績</span></a>
+    <a class="nav-link active" href="calc.html">🧮 <span>計算ツール</span></a>
+    <a class="nav-link" href="drawing.html">📐 <span>図面読込</span></a>
+    <a class="nav-link" href="preview.html">🖥 <span>パスプレビュー</span></a>
+  </div>
+</nav>
+
+<div class="calc-layout">
+  <div class="calc-menu">
+    <div class="calc-menu-item active" onclick="showCalc('time',this)">⏱ 加工時間見積り</div>
+    <div class="calc-menu-item" onclick="showCalc('fit',this)">📐 公差・はめあい</div>
+    <div class="calc-menu-item" onclick="showCalc('tap',this)">🔩 ねじ下穴径</div>
+    <div class="calc-menu-item" onclick="showCalc('rough',this)">📊 面粗さ推定</div>
+    <div class="calc-menu-item" onclick="showCalc('force',this)">⚡ 切削負荷</div>
+    <div class="calc-menu-item" onclick="showCalc('compare',this)">📈 条件比較</div>
+  </div>
+  <div class="calc-content">
+
+    <!-- ① 加工時間見積り -->
+    <div id="calc-time" class="tab-panel active">
+      <div class="page-title">⏱ 加工時間見積り</div>
+      <div class="page-sub">切削条件から1個あたりの加工時間を計算します</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">切削条件</div>
+          <div class="field"><label>加工種別</label>
+            <select id="t-proc" onchange="calcTime()">
+              <option value="od">外径旋削</option><option value="id">内径ボーリング</option>
+              <option value="thread">ねじ切り</option><option value="face">端面削り</option>
+            </select>
+          </div>
+          <div class="grid-2">
+            <div class="field"><label>加工長さ (mm)</label><input type="number" id="t-len" value="80" oninput="calcTime()"></div>
+            <div class="field"><label>切込み量 (mm)</label><input type="number" id="t-ap" value="1.5" step="0.1" oninput="calcTime()"></div>
+            <div class="field"><label>総削り代 (mm)</label><input type="number" id="t-stock" value="5" oninput="calcTime()"></div>
+            <div class="field"><label>回転数 (rpm)</label><input type="number" id="t-rpm" value="1000" oninput="calcTime()"></div>
+            <div class="field"><label>送り (mm/rev)</label><input type="number" id="t-feed" value="0.2" step="0.01" oninput="calcTime()"></div>
+            <div class="field"><label>段取り時間 (min)</label><input type="number" id="t-setup" value="5" oninput="calcTime()"></div>
+          </div>
+          <div class="field"><label>生産数</label><input type="number" id="t-qty" value="10" oninput="calcTime()"></div>
+        </div>
+        <div>
+          <div class="result-box" id="time-result">計算中...</div>
+          <div class="card" style="margin-top:14px">
+            <div class="card-title">工程内訳</div>
+            <div id="time-breakdown" style="font-size:13px;color:var(--text2)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ② 公差・はめあい -->
+    <div id="calc-fit" class="tab-panel">
+      <div class="page-title">📐 公差・はめあい計算</div>
+      <div class="page-sub">ISO基準の穴・軸の許容寸法を計算します</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">入力</div>
+          <div class="field"><label>基準寸法 (mm)</label><input type="number" id="fit-dim" value="25" oninput="calcFit()"></div>
+          <div class="grid-2">
+            <div class="field"><label>穴の公差記号</label>
+              <select id="fit-hole" onchange="calcFit()">
+                <option>H6</option><option selected>H7</option><option>H8</option><option>H9</option><option>H11</option>
+                <option>JS7</option><option>K7</option><option>M7</option><option>N7</option><option>P7</option>
+              </select>
+            </div>
+            <div class="field"><label>軸の公差記号</label>
+              <select id="fit-shaft" onchange="calcFit()">
+                <option>e8</option><option>f7</option><option selected>g6</option><option>h6</option><option>h7</option>
+                <option>js6</option><option>k6</option><option>m6</option><option>n6</option><option>p6</option><option>s6</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="result-box" id="fit-result">入力してください</div>
+      </div>
+    </div>
+
+    <!-- ③ ねじ下穴径 -->
+    <div id="calc-tap" class="tab-panel">
+      <div class="page-title">🔩 ねじ下穴径計算</div>
+      <div class="page-sub">タップ加工の下穴径・ドリル径を計算します</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">ねじ仕様</div>
+          <div class="field"><label>ねじ種別</label>
+            <select id="tap-type" onchange="calcTap()">
+              <option value="M">メートルねじ (M)</option>
+              <option value="UNC">ユニファイ並目 (UNC)</option>
+              <option value="UNF">ユニファイ細目 (UNF)</option>
+              <option value="PT">管用テーパ (PT)</option>
+            </select>
+          </div>
+          <div class="field"><label>呼び径</label>
+            <select id="tap-size" onchange="calcTap()">
+              <option>M3</option><option>M4</option><option>M5</option><option>M6</option>
+              <option selected>M8</option><option>M10</option><option>M12</option><option>M14</option>
+              <option>M16</option><option>M20</option><option>M24</option><option>M30</option>
+            </select>
+          </div>
+          <div class="field"><label>材質</label>
+            <select id="tap-mat" onchange="calcTap()">
+              <option value="steel">鉄鋼・合金鋼</option>
+              <option value="sus">ステンレス</option>
+              <option value="al">アルミ</option>
+              <option value="cast">鋳鉄</option>
+            </select>
+          </div>
+        </div>
+        <div class="result-box" id="tap-result">選択してください</div>
+      </div>
+    </div>
+
+    <!-- ④ 面粗さ推定 -->
+    <div id="calc-rough" class="tab-panel">
+      <div class="page-title">📊 面粗さ推定</div>
+      <div class="page-sub">送り速度とノーズRから理論面粗さを計算します</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">切削条件</div>
+          <div class="field"><label>送り量 f (mm/rev)</label><input type="number" id="rg-feed" value="0.2" step="0.01" oninput="calcRough()"></div>
+          <div class="field"><label>ノーズR Re (mm)</label>
+            <select id="rg-noseR" onchange="calcRough()">
+              <option value="0.2">R0.2</option><option value="0.4">R0.4</option>
+              <option value="0.8" selected>R0.8</option><option value="1.2">R1.2</option>
+              <option value="1.6">R1.6</option><option value="2.0">R2.0</option>
+            </select>
+          </div>
+          <div class="field"><label>仕上げ面目標</label>
+            <select id="rg-target">
+              <option value="6.3">▽▽ Ra6.3 (荒)</option>
+              <option value="3.2" selected>▽▽▽ Ra3.2 (中)</option>
+              <option value="1.6">▽▽▽▽ Ra1.6 (仕上)</option>
+              <option value="0.8">Ra0.8 (精密)</option>
+            </select>
+          </div>
+          <button class="btn btn-primary btn-full" onclick="calcRough()">計算</button>
+        </div>
+        <div class="result-box" id="rough-result">入力してください</div>
+      </div>
+    </div>
+
+    <!-- ⑤ 切削負荷 -->
+    <div id="calc-force" class="tab-panel">
+      <div class="page-title">⚡ 切削負荷・必要馬力</div>
+      <div class="page-sub">切削抵抗と必要馬力を計算し、機械能力と比較します</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">条件</div>
+          <div class="field"><label>素材</label>
+            <select id="fc-mat" onchange="calcForce()">
+              <option value="S45C">S45C</option><option value="SS400">SS400</option>
+              <option value="SCM440">SCM440</option><option value="SUS304">SUS304</option>
+              <option value="A5052">A5052</option><option value="A6061">A6061</option>
+            </select>
+          </div>
+          <div class="grid-2">
+            <div class="field"><label>切込み ap (mm)</label><input type="number" id="fc-ap" value="1.5" step="0.1" oninput="calcForce()"></div>
+            <div class="field"><label>送り f (mm/rev)</label><input type="number" id="fc-feed" value="0.2" step="0.01" oninput="calcForce()"></div>
+            <div class="field"><label>切削速度 Vc (m/min)</label><input type="number" id="fc-vc" value="180" oninput="calcForce()"></div>
+            <div class="field"><label>機械馬力 (kW)</label><input type="number" id="fc-machine" value="7.5" step="0.5" oninput="calcForce()"></div>
+          </div>
+        </div>
+        <div class="result-box" id="force-result">入力してください</div>
+      </div>
+    </div>
+
+    <!-- ⑥ 条件比較 -->
+    <div id="calc-compare" class="tab-panel">
+      <div class="page-title">📈 切削条件比較・最適化</div>
+      <div class="page-sub">荒削り・中削り・仕上げの条件をまとめて比較します</div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="grid-3">
+          <div class="field"><label>素材</label>
+            <select id="cmp-mat" onchange="calcCompare()">
+              <option value="S45C">S45C</option><option value="SS400">SS400</option>
+              <option value="SCM440">SCM440</option><option value="SUS304">SUS304</option>
+              <option value="SUS316">SUS316</option><option value="A2017">A2017</option>
+              <option value="A5052">A5052</option><option value="A6061">A6061</option>
+            </select>
+          </div>
+          <div class="field"><label>工具材種</label>
+            <select id="cmp-toolmat" onchange="calcCompare()">
+              <option>超硬</option><option>サーメット</option><option>CBN</option><option>ハイス</option>
+            </select>
+          </div>
+          <div class="field"><label>工具径 (mm)</label><input type="number" id="cmp-dia" value="25" oninput="calcCompare()"></div>
+        </div>
+      </div>
+      <div style="overflow-x:auto"><table class="tbl compare-table" id="compare-table"></table></div>
+    </div>
+
+  </div>
+</div>
+
+<script src="../js/common.js"></script>
+<script>
+// タブ切り替え
+function showCalc(id, el) {
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.calc-menu-item').forEach(m=>m.classList.remove('active'));
+  document.getElementById('calc-'+id).classList.add('active');
+  el.classList.add('active');
+}
+
+// ① 加工時間
+function calcTime() {
+  const len=parseFloat(document.getElementById('t-len').value)||80;
+  const ap=parseFloat(document.getElementById('t-ap').value)||1.5;
+  const stock=parseFloat(document.getElementById('t-stock').value)||5;
+  const rpm=parseFloat(document.getElementById('t-rpm').value)||1000;
+  const feed=parseFloat(document.getElementById('t-feed').value)||0.2;
+  const setup=parseFloat(document.getElementById('t-setup').value)||5;
+  const qty=parseInt(document.getElementById('t-qty').value)||1;
+
+  const passes = Math.max(1, Math.ceil(stock / ap));
+  const feedRate = rpm * feed; // mm/min
+  const cutTimePerPass = len / feedRate;
+  const totalCutMin = cutTimePerPass * passes * 60 / 60;
+  const rapidMin = passes * 0.1;
+  const machineMin = totalCutMin + rapidMin;
+  const totalPerPiece = machineMin + setup;
+  const totalAll = setup + machineMin * qty;
+
+  document.getElementById('time-result').innerHTML = `
+    <div class="result-row"><span class="result-label">切削時間/個</span><span class="result-val">${machineMin.toFixed(1)}<span class="result-unit">min</span></span></div>
+    <div class="result-row"><span class="result-label">段取り時間</span><span class="result-val">${setup}<span class="result-unit">min</span></span></div>
+    <div class="result-row"><span class="result-label">合計/個（段取り含む）</span><span class="result-val">${totalPerPiece.toFixed(1)}<span class="result-unit">min</span></span></div>
+    <div class="result-row"><span class="result-label">送り速度</span><span class="result-val">${feedRate.toFixed(1)}<span class="result-unit">mm/min</span></span></div>
+    <div class="result-row"><span class="result-label">パス数</span><span class="result-val">${passes}<span class="result-unit">回</span></span></div>
+    <div class="result-row" style="background:var(--accent-l);border-radius:6px;padding:10px"><span class="result-label" style="color:var(--accent);font-weight:700">${qty}個の総時間</span><span class="result-val" style="color:var(--accent)">${totalAll.toFixed(0)}<span class="result-unit" style="color:var(--accent)">min</span></span></div>
+  `;
+  document.getElementById('time-breakdown').innerHTML =
+    `パス数: ${passes}回 × 加工時間: ${cutTimePerPass.toFixed(2)}min/パス + 早送り: ${rapidMin.toFixed(1)}min`;
+}
+
+// ② 公差・はめあい
+const FIT_DATA = {
+  // 穴: [基準寸法範囲, ES, EI] (μm)
+  holes: {
+    H6:  (d)=>({ES:+IT(d,6), EI:0}),
+    H7:  (d)=>({ES:+IT(d,7), EI:0}),
+    H8:  (d)=>({ES:+IT(d,8), EI:0}),
+    H9:  (d)=>({ES:+IT(d,9), EI:0}),
+    H11: (d)=>({ES:+IT(d,11), EI:0}),
+    JS7: (d)=>({ES:+Math.round(IT(d,7)/2), EI:-Math.round(IT(d,7)/2)}),
+    K7:  (d)=>({ES:+Math.round(IT(d,7)*0.6)-IT(d,7), EI:-Math.round(IT(d,7)*0.6)}),
+    M7:  (d)=>({ES:-4, EI:-4-IT(d,7)}),
+    N7:  (d)=>({ES:-5, EI:-5-IT(d,7)}),
+    P7:  (d)=>({ES:-9, EI:-9-IT(d,7)}),
+  },
+  shafts: {
+    e8:  (d)=>({es:-getFund(d,'e'),    ei:-getFund(d,'e')-IT(d,8)}),
+    f7:  (d)=>({es:-getFund(d,'f'),    ei:-getFund(d,'f')-IT(d,7)}),
+    g6:  (d)=>({es:-getFund(d,'g'),    ei:-getFund(d,'g')-IT(d,6)}),
+    h6:  (d)=>({es:0,                  ei:-IT(d,6)}),
+    h7:  (d)=>({es:0,                  ei:-IT(d,7)}),
+    js6: (d)=>({es:+Math.round(IT(d,6)/2), ei:-Math.round(IT(d,6)/2)}),
+    k6:  (d)=>({es:+getFund(d,'k')+IT(d,6)-IT(d,5), ei:+getFund(d,'k')}),
+    m6:  (d)=>({es:+getFund(d,'m')+IT(d,6), ei:+getFund(d,'m')}),
+    n6:  (d)=>({es:+getFund(d,'n')+IT(d,6), ei:+getFund(d,'n')}),
+    p6:  (d)=>({es:+getFund(d,'p')+IT(d,6), ei:+getFund(d,'p')}),
+    s6:  (d)=>({es:+getFund(d,'s')+IT(d,6), ei:+getFund(d,'s')}),
+  }
+};
+
+function IT(d, q) {
+  const D = Math.sqrt(d); // 幾何平均
+  const i = 0.45 * Math.cbrt(D) + 0.001 * D; // 基本公差単位 μm
+  const factor = {1:0.8,2:1.2,3:2,4:3,5:4,6:6,7:10,8:14,9:25,10:40,11:64,12:100,13:160,14:250};
+  return Math.round(i * (factor[q]||10));
+}
+
+function getFund(d, letter) {
+  const funds = {
+    e: d<=3?14:d<=6?20:d<=10?25:d<=18?32:d<=30?40:d<=50?50:d<=80?60:80,
+    f: d<=3?6:d<=6?10:d<=10?13:d<=18?16:d<=30?20:d<=50?25:d<=80?30:36,
+    g: d<=3?2:d<=6?4:d<=10?5:d<=18?6:d<=30?7:d<=50?9:d<=80?10:12,
+    k: 0, m: d<=3?2:d<=6?4:d<=10?6:d<=18?8:d<=30?9:d<=50?11:d<=80?13:15,
+    n: d<=3?4:d<=6?8:d<=10?10:d<=18?12:d<=30?15:d<=50?17:d<=80?20:23,
+    p: d<=3?6:d<=6?12:d<=10?15:d<=18?18:d<=30?22:d<=50?26:d<=80?30:36,
+    s: d<=3?14:d<=6?19:d<=10?23:d<=18?28:d<=30?35:d<=50?43:d<=80?53:d<=120?71:d<=180?79:92,
+  };
+  return funds[letter]||0;
+}
+
+function calcFit() {
+  const dim=parseFloat(document.getElementById('fit-dim').value)||25;
+  const hKey=document.getElementById('fit-hole').value;
+  const sKey=document.getElementById('fit-shaft').value;
+  const hFn=FIT_DATA.holes[hKey]; const sFn=FIT_DATA.shafts[sKey];
+  if(!hFn||!sFn){document.getElementById('fit-result').innerHTML='対応外の記号です';return;}
+  const h=hFn(dim), s=sFn(dim);
+  const hMax=(dim+h.ES/1000).toFixed(3), hMin=(dim+h.EI/1000).toFixed(3);
+  const sMax=(dim+s.es/1000).toFixed(3), sMin=(dim+s.ei/1000).toFixed(3);
+  const maxClear=((h.ES-s.ei)/1000).toFixed(3);
+  const minClear=((h.EI-s.es)/1000).toFixed(3);
+  const fitType = parseFloat(minClear)>=0 ? (parseFloat(maxClear)<0.05?'中間ばめ':'すきまばめ') : 'しまりばめ';
+  const fitColor = fitType==='すきまばめ' ? 'badge-blue' : fitType==='しまりばめ' ? 'badge-red' : 'badge-amber';
+  document.getElementById('fit-result').innerHTML=`
+    <div style="margin-bottom:12px"><span class="badge ${fitColor}" style="font-size:13px">${fitType}</span>　<strong>${dim}${hKey}/${sKey}</strong></div>
+    <div class="result-row"><span class="result-label">穴 最大寸法</span><span class="result-val">${hMax}<span class="result-unit">mm</span></span></div>
+    <div class="result-row"><span class="result-label">穴 最小寸法</span><span class="result-val">${hMin}<span class="result-unit">mm</span></span></div>
+    <div class="result-row"><span class="result-label">軸 最大寸法</span><span class="result-val">${sMax}<span class="result-unit">mm</span></span></div>
+    <div class="result-row"><span class="result-label">軸 最小寸法</span><span class="result-val">${sMin}<span class="result-unit">mm</span></span></div>
+    <div class="result-row"><span class="result-label">最大すきま/しめしろ</span><span class="result-val">${maxClear}<span class="result-unit">mm</span></span></div>
+    <div class="result-row"><span class="result-label">最小すきま/しめしろ</span><span class="result-val">${minClear}<span class="result-unit">mm</span></span></div>
+  `;
+}
+
+// ③ ねじ下穴
+const TAP_TABLE = {
+  M3:{pitch:0.5,drill:{steel:2.5,sus:2.5,al:2.6,cast:2.5}},
+  M4:{pitch:0.7,drill:{steel:3.3,sus:3.3,al:3.4,cast:3.3}},
+  M5:{pitch:0.8,drill:{steel:4.2,sus:4.2,al:4.3,cast:4.2}},
+  M6:{pitch:1.0,drill:{steel:5.0,sus:5.0,al:5.1,cast:5.0}},
+  M8:{pitch:1.25,drill:{steel:6.7,sus:6.8,al:6.9,cast:6.7}},
+  M10:{pitch:1.5,drill:{steel:8.5,sus:8.6,al:8.7,cast:8.5}},
+  M12:{pitch:1.75,drill:{steel:10.2,sus:10.3,al:10.4,cast:10.2}},
+  M14:{pitch:2.0,drill:{steel:12.0,sus:12.1,al:12.2,cast:12.0}},
+  M16:{pitch:2.0,drill:{steel:14.0,sus:14.1,al:14.2,cast:14.0}},
+  M20:{pitch:2.5,drill:{steel:17.5,sus:17.6,al:17.7,cast:17.5}},
+  M24:{pitch:3.0,drill:{steel:21.0,sus:21.1,al:21.3,cast:21.0}},
+  M30:{pitch:3.5,drill:{steel:26.5,sus:26.6,al:26.8,cast:26.5}},
+};
+
+function calcTap() {
+  const size=document.getElementById('tap-size').value;
+  const mat=document.getElementById('tap-mat').value;
+  const d=TAP_TABLE[size];
+  if(!d){document.getElementById('tap-result').innerHTML='データなし';return;}
+  const drill=d.drill[mat];
+  const minor=parseFloat(size.replace('M',''))-d.pitch;
+  document.getElementById('tap-result').innerHTML=`
+    <div style="margin-bottom:10px"><strong style="font-size:16px">${size} P${d.pitch}</strong></div>
+    <div class="result-row"><span class="result-label">推奨下穴径</span><span class="result-val" style="color:var(--accent)">${drill}<span class="result-unit">mm</span></span></div>
+    <div class="result-row"><span class="result-label">理論下穴径 (呼び-P)</span><span class="result-val">${minor.toFixed(2)}<span class="result-unit">mm</span></span></div>
+    <div class="result-row"><span class="result-label">ピッチ</span><span class="result-val">${d.pitch}<span class="result-unit">mm</span></span></div>
+    <div style="margin-top:12px" class="alert alert-info">材質「${['steel'=>'鉄鋼','sus'=>'SUS','al'=>'アルミ','cast'=>'鋳鉄'][mat]||mat}」向けの推奨値です。ドリルはJIS規格の標準径から選択してください。</div>
+  `;
+}
+
+// ④ 面粗さ
+function calcRough() {
+  const feed=parseFloat(document.getElementById('rg-feed').value)||0.2;
+  const noseR=parseFloat(document.getElementById('rg-noseR').value)||0.8;
+  const target=parseFloat(document.getElementById('rg-target').value)||3.2;
+  const r=calcRoughness(feed, noseR);
+  const ok=parseFloat(r.ra)<=target;
+  const maxFeed=Math.sqrt(8*noseR*target/1000).toFixed(3);
+  document.getElementById('rough-result').innerHTML=`
+    <div class="result-row"><span class="result-label">理論面粗さ Rz (Rmax)</span><span class="result-val">${r.ry}<span class="result-unit">μm</span></span></div>
+    <div class="result-row"><span class="result-label">理論面粗さ Ra (近似)</span><span class="result-val" style="color:${ok?'var(--green)':'var(--red)'}">${r.ra}<span class="result-unit">μm</span></span></div>
+    <div class="result-row"><span class="result-label">目標 Ra</span><span class="result-val">${target}<span class="result-unit">μm</span></span></div>
+    <div style="margin-top:12px" class="alert ${ok?'alert-success':'alert-danger'}">
+      ${ok ? `✅ 目標面粗さ Ra${target}μm を達成できます` : `❌ Ra${r.ra}μm > 目標Ra${target}μm\n送りを f≤${maxFeed}mm/rev に下げてください`}
+    </div>
+    <div class="result-row"><span class="result-label">目標達成の最大送り</span><span class="result-val">${maxFeed}<span class="result-unit">mm/rev</span></span></div>
+  `;
+}
+
+// ⑤ 切削負荷
+function calcForce() {
+  const mat=document.getElementById('fc-mat').value;
+  const ap=parseFloat(document.getElementById('fc-ap').value)||1.5;
+  const feed=parseFloat(document.getElementById('fc-feed').value)||0.2;
+  const vc=parseFloat(document.getElementById('fc-vc').value)||180;
+  const machinePow=parseFloat(document.getElementById('fc-machine').value)||7.5;
+  const r=calcCuttingForce(mat,ap,feed,vc,25);
+  if(!r){return;}
+  const ratio=parseFloat(r.pc)/machinePow*100;
+  const ok=ratio<=80;
+  document.getElementById('force-result').innerHTML=`
+    <div class="result-row"><span class="result-label">比切削抵抗 kc</span><span class="result-val">${r.kc}<span class="result-unit">N/mm²</span></span></div>
+    <div class="result-row"><span class="result-label">主分力 Fc</span><span class="result-val">${r.fc}<span class="result-unit">N</span></span></div>
+    <div class="result-row"><span class="result-label">必要馬力 Pc</span><span class="result-val" style="color:${ok?'var(--green)':'var(--red)'}">${r.pc}<span class="result-unit">kW</span></span></div>
+    <div class="result-row"><span class="result-label">機械馬力使用率</span><span class="result-val" style="color:${ok?'var(--green)':'var(--red)'}">${ratio.toFixed(1)}<span class="result-unit">%</span></span></div>
+    <div style="margin-top:12px" class="alert ${ok?'alert-success':'alert-danger'}">
+      ${ok ? `✅ 機械馬力の${ratio.toFixed(0)}%使用。余裕あり。` : `⚠️ 機械馬力の${ratio.toFixed(0)}%使用。切削条件を下げてください。`}
+    </div>
+  `;
+}
+
+// ⑥ 条件比較
+function calcCompare() {
+  const mat=document.getElementById('cmp-mat').value;
+  const tm=document.getElementById('cmp-toolmat').value;
+  const d=parseFloat(document.getElementById('cmp-dia').value)||25;
+  const rows=['荒削り','中削り','仕上げ'].map(fin=>{
+    const c=calcConditions(mat,tm,d,fin);
+    if(!c)return'';
+    const r=calcRoughness(c.feed,0.8);
+    const force=calcCuttingForce(mat,c.ap,c.feed,c.vc,d);
+    return `<tr>
+      <td style="font-weight:700">${fin}</td>
+      <td>${c.vc}</td><td>${c.rpm}</td><td>${c.feed}</td><td>${c.ap}</td>
+      <td>${c.feedMin}</td>
+      <td class="${fin==='仕上げ'?'compare-best':''}">${r.ra}</td>
+      <td class="${fin==='荒削り'?'compare-best':''}">${force?force.pc:'—'}</td>
+    </tr>`;
+  });
+  document.getElementById('compare-table').innerHTML=`
+    <thead><tr>
+      <th>仕上げ種別</th><th>Vc(m/min)</th><th>rpm</th><th>f(mm/rev)</th>
+      <th>ap(mm)</th><th>送り速(mm/min)</th><th>理論Ra(μm)</th><th>必要馬力(kW)</th>
+    </tr></thead>
+    <tbody>${rows.join('')}</tbody>
+  `;
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  calcTime(); calcFit(); calcTap(); calcRough(); calcForce(); calcCompare();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>図面読み込み | NC Suite</title>
+<link rel="stylesheet" href="../css/common.css">
+<style>
+.dxf-layout{display:grid;grid-template-columns:1fr 1fr;gap:0;min-height:calc(100vh - 54px)}
+.dxf-left{border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+.dxf-right{overflow-y:auto;background:var(--bg)}
+
+/* アップロードゾーン */
+.upload-zone{border:2px dashed var(--border);border-radius:var(--radius-lg);padding:36px 24px;text-align:center;cursor:pointer;background:var(--bg1);transition:all .2s;position:relative;margin:16px}
+.upload-zone:hover,.upload-zone.over{border-color:var(--accent);background:var(--accent-l)}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-icon{font-size:40px;margin-bottom:10px;opacity:.5}
+.upload-title{font-size:15px;font-weight:700;margin-bottom:4px}
+.upload-sub{font-size:12px;color:var(--text2)}
+
+/* DXFビューア */
+#dxf-canvas-wrap{background:#1a1d23;border-radius:var(--radius);margin:0 16px 16px;position:relative;height:340px;overflow:hidden}
+#dxf-canvas{width:100%;height:100%;display:block}
+.canvas-toolbar{position:absolute;top:8px;right:8px;display:flex;gap:4px}
+.ctbtn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center}
+.ctbtn:hover{background:rgba(255,255,255,.25)}
+.canvas-info{position:absolute;bottom:6px;left:8px;font-size:10px;color:rgba(255,255,255,.4);font-family:var(--mono)}
+
+/* 抽出結果 */
+.extract-section{padding:0 16px 16px}
+.extract-title{font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:10px}
+.dim-item{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg1);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:5px;cursor:pointer;transition:all .15s}
+.dim-item:hover{border-color:var(--accent)}
+.dim-item.selected{border-color:var(--accent);background:var(--accent-l)}
+.dim-label{font-size:11px;color:var(--text2);min-width:60px}
+.dim-value{font-size:14px;font-weight:700;font-family:var(--mono);color:var(--text)}
+.dim-unit{font-size:11px;color:var(--text3);margin-left:2px}
+.dim-type{margin-left:auto}
+.layer-list{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.layer-chip{font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);cursor:pointer;background:var(--bg1);color:var(--text2);transition:all .12s}
+.layer-chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* 右：マッピング→Gコード */
+.right-header{background:var(--bg1);border-bottom:1px solid var(--border);padding:10px 16px;position:sticky;top:0;z-index:10}
+.right-header h2{font-size:14px;font-weight:700}
+.right-header p{font-size:12px;color:var(--text2);margin-top:2px}
+.mapping-area{padding:16px}
+.map-card{background:var(--bg1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;margin-bottom:12px}
+.map-card-title{font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.map-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px}
+.map-label{color:var(--text2);min-width:110px}
+.map-value{font-family:var(--mono);font-weight:700;color:var(--text);min-width:60px}
+.map-arrow{color:var(--text3);font-size:12px}
+.map-input{flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:var(--sans);background:var(--bg1);color:var(--text);outline:none}
+.map-input:focus{border-color:var(--accent)}
+.proc-select-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.proc-sel-btn{padding:6px 12px;font-size:12px;font-weight:600;border:1px solid var(--border);border-radius:20px;cursor:pointer;background:var(--bg1);color:var(--text2);transition:all .12s}
+.proc-sel-btn:hover{border-color:var(--accent);color:var(--accent)}
+.proc-sel-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+.step-indicator{display:flex;gap:0;margin:16px;background:var(--bg2);border-radius:var(--radius-lg);padding:4px}
+.step-ind{flex:1;text-align:center;padding:8px 4px;font-size:11px;font-weight:600;color:var(--text3);border-radius:var(--radius);transition:all .15s}
+.step-ind.active{background:var(--bg1);color:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.step-ind.done{color:var(--green)}
+
+@media(max-width:900px){.dxf-layout{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a class="nav-logo" href="../index.html">⚙ NC Suite</a>
+  <div class="nav-links">
+    <a class="nav-link" href="../index.html">🏠 <span>ホーム</span></a>
+    <a class="nav-link" href="gcode.html">📝 <span>Gコード生成</span></a>
+    <a class="nav-link" href="compound.html">🔗 <span>複合加工</span></a>
+    <a class="nav-link" href="tools.html">🔧 <span>工具登録</span></a>
+    <a class="nav-link" href="log.html">📋 <span>加工実績</span></a>
+    <a class="nav-link" href="calc.html">🧮 <span>計算ツール</span></a>
+    <a class="nav-link active" href="drawing.html">📐 <span>図面読み込み</span></a>
+    <a class="nav-link" href="preview.html">🖥 <span>プレビュー</span></a>
+  </div>
+</nav>
+
+<!-- ステップ表示 -->
+<div class="step-indicator">
+  <div class="step-ind active" id="step1">① DXFアップロード</div>
+  <div class="step-ind" id="step2">② 寸法確認・選択</div>
+  <div class="step-ind" id="step3">③ 加工設定</div>
+  <div class="step-ind" id="step4">④ Gコード生成</div>
+</div>
+
+<div class="dxf-layout">
+<!-- 左：DXFビューア -->
+<div class="dxf-left">
+
+  <!-- アップロード -->
+  <div id="upload-area">
+    <div class="upload-zone" id="upload-zone">
+      <input type="file" id="dxf-file" accept=".dxf,.DXF" onchange="loadDXF(event)">
+      <div class="upload-icon">📐</div>
+      <div class="upload-title">DXFファイルをドロップ または クリック</div>
+      <div class="upload-sub">JW_CAD / AutoCAD の .dxf 形式に対応<br>保存時は「R12/LT2形式」推奨</div>
+    </div>
+    <div style="padding:0 16px 12px;text-align:center">
+      <button class="btn btn-sm" onclick="loadSampleDXF()">📋 サンプル図面で試す</button>
+    </div>
+  </div>
+
+  <!-- DXFビューア（ファイル読み込み後に表示） -->
+  <div id="viewer-area" style="display:none">
+    <div id="dxf-canvas-wrap">
+      <canvas id="dxf-canvas"></canvas>
+      <div class="canvas-toolbar">
+        <button class="ctbtn" onclick="zoomIn()" title="拡大">+</button>
+        <button class="ctbtn" onclick="zoomOut()" title="縮小">−</button>
+        <button class="ctbtn" onclick="fitView()" title="全体表示">⊡</button>
+      </div>
+      <div class="canvas-info" id="canvas-info">マウスホイール：ズーム　ドラッグ：移動</div>
+    </div>
+
+    <!-- レイヤー切り替え -->
+    <div class="extract-section">
+      <div class="extract-title">レイヤー</div>
+      <div class="layer-list" id="layer-list"></div>
+
+      <!-- 抽出された寸法 -->
+      <div class="extract-title" style="margin-top:12px">抽出された寸法（クリックで選択）</div>
+      <div id="dim-list"></div>
+
+      <div style="margin-top:12px">
+        <button class="btn btn-sm" onclick="resetFile()">別ファイルを開く</button>
+        <button class="btn btn-sm btn-primary" style="margin-left:6px" onclick="goToMapping()">選択した寸法で設定へ →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 右：マッピング & Gコード生成 -->
+<div class="dxf-right">
+  <div class="right-header">
+    <h2>📐 加工設定 → Gコード生成</h2>
+    <p>抽出した寸法を加工パラメータにマッピングします</p>
+  </div>
+  <div class="mapping-area">
+
+    <!-- 加工種別選択 -->
+    <div class="map-card">
+      <div class="map-card-title">🔧 加工種別</div>
+      <div class="proc-select-row">
+        <button class="proc-sel-btn active" onclick="selectProc('od',this)">外径旋削</button>
+        <button class="proc-sel-btn" onclick="selectProc('id',this)">内径ボーリング</button>
+        <button class="proc-sel-btn" onclick="selectProc('thread',this)">ねじ切り</button>
+        <button class="proc-sel-btn" onclick="selectProc('groove',this)">溝入れ</button>
+        <button class="proc-sel-btn" onclick="selectProc('taper',this)">テーパー・R</button>
+      </div>
+    </div>
+
+    <!-- 素材・工具 -->
+    <div class="map-card">
+      <div class="map-card-title">⚙ 素材・工具</div>
+      <div class="grid-2">
+        <div class="field"><label>素材</label>
+          <select id="dxf-mat">
+            <option value="S45C">S45C</option><option value="SS400">SS400</option>
+            <option value="SCM440">SCM440</option><option value="SUS304">SUS304</option>
+            <option value="SUS316">SUS316</option><option value="A2017">A2017</option>
+            <option value="A5052">A5052</option><option value="A6061">A6061</option>
+            <option value="C3604">C3604</option>
+          </select>
+        </div>
+        <div class="field"><label>仕上げ種別</label>
+          <select id="dxf-finish">
+            <option>荒削り</option><option selected>中削り</option><option>仕上げ</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 寸法マッピング（加工種別によって動的変化） -->
+    <div class="map-card" id="mapping-card">
+      <div class="map-card-title">📏 寸法マッピング</div>
+      <div id="mapping-form">
+        <div class="alert alert-info">左の図面から寸法を選択するか、直接入力してください。</div>
+      </div>
+    </div>
+
+    <!-- 切削条件 -->
+    <div class="map-card">
+      <div class="map-card-title">⚡ 切削条件</div>
+      <div class="grid-3">
+        <div class="field"><label>回転数 (rpm)</label><input type="number" id="dxf-rpm" placeholder="自動計算"></div>
+        <div class="field"><label>送り (mm/rev)</label><input type="number" id="dxf-feed" step="0.01" placeholder="自動計算"></div>
+        <div class="field"><label>切込み (mm)</label><input type="number" id="dxf-depth" step="0.1" placeholder="自動計算"></div>
+      </div>
+      <button class="btn btn-sm" onclick="autoCalcConditions()">⚡ 切削条件を自動計算</button>
+    </div>
+
+    <!-- メモ・品番 -->
+    <div class="map-card">
+      <div class="map-card-title">📋 実績情報</div>
+      <div class="grid-2">
+        <div class="field"><label>品番</label><input type="text" id="dxf-partno" placeholder="例: ABC-001"></div>
+        <div class="field"><label>プログラム番号</label><input type="number" id="dxf-progno" value="1000"></div>
+      </div>
+      <div class="field"><label>メモ</label><input type="text" id="dxf-memo" placeholder="注意事項など"></div>
+    </div>
+
+    <button class="btn btn-primary btn-full" style="margin-bottom:12px" onclick="generateFromDXF()">▶ Gコード生成</button>
+
+    <!-- 出力 -->
+    <div id="dxf-output" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <strong style="font-size:13px">生成Gコード</strong>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm" onclick="copyDXFCode()">コピー</button>
+          <button class="btn btn-sm" onclick="dlDXFCode()">DL(.nc)</button>
+          <button class="btn btn-sm btn-primary" onclick="saveDXFToLog()">📋 実績保存</button>
+          <button class="btn btn-sm" onclick="sendDXFToPreview()">🖥 3D確認</button>
+        </div>
+      </div>
+      <div id="dxf-gcode-view" class="gcode" style="max-height:400px;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script src="../js/common.js"></script>
+<script>
+// ===== DXFパーサー（軽量自前実装 R12/2000対応）=====
+function parseDXF(text) {
+  const entities = [];
+  const layers = new Set(['0']);
+  const dims = [];
+
+  const lines = text.split(/\r?\n/);
+  let i = 0;
+
+  function nextPair() {
+    if (i >= lines.length-1) return null;
+    const code = parseInt(lines[i++].trim());
+    const value = lines[i++].trim();
+    return { code, value };
+  }
+
+  // エンティティセクションを探す
+  while (i < lines.length) {
+    const pair = nextPair();
+    if (!pair) break;
+    if (pair.code === 2 && pair.value === 'ENTITIES') break;
+  }
+
+  // エンティティを解析
+  let currentEntity = null;
+  while (i < lines.length) {
+    const pair = nextPair();
+    if (!pair) break;
+    if (pair.code === 0) {
+      if (currentEntity) {
+        entities.push(currentEntity);
+        extractDimension(currentEntity, dims);
+      }
+      if (pair.value === 'ENDSEC') break;
+      currentEntity = { type: pair.value, layer: '0', data: {} };
+    } else if (currentEntity) {
+      if (pair.code === 8) {
+        currentEntity.layer = pair.value;
+        layers.add(pair.value);
+      }
+      currentEntity.data[pair.code] = pair.value;
+    }
+  }
+
+  return { entities, layers: Array.from(layers), dims };
+}
+
+function extractDimension(entity, dims) {
+  const d = entity.data;
+  switch (entity.type) {
+    case 'LINE': {
+      const x1=parseFloat(d[10]||0),y1=parseFloat(d[20]||0);
+      const x2=parseFloat(d[11]||0),y2=parseFloat(d[21]||0);
+      const len = Math.sqrt((x2-x1)**2+(y2-y1)**2);
+      if (len > 0.01) {
+        const isH = Math.abs(y2-y1) < Math.abs(x2-x1)*0.1;
+        const isV = Math.abs(x2-x1) < Math.abs(y2-y1)*0.1;
+        dims.push({
+          type: isH?'水平長さ': isV?'垂直長さ':'斜め長さ',
+          value: parseFloat(len.toFixed(3)),
+          layer: entity.layer,
+          entity,
+          x1,y1,x2,y2
+        });
+      }
+      break;
+    }
+    case 'CIRCLE': {
+      const r=parseFloat(d[40]||0);
+      if (r > 0.01) {
+        dims.push({type:'半径', value:parseFloat(r.toFixed(3)), layer:entity.layer, entity,
+          cx:parseFloat(d[10]||0), cy:parseFloat(d[20]||0), r});
+        dims.push({type:'直径', value:parseFloat((r*2).toFixed(3)), layer:entity.layer, entity,
+          cx:parseFloat(d[10]||0), cy:parseFloat(d[20]||0), r});
+      }
+      break;
+    }
+    case 'ARC': {
+      const r=parseFloat(d[40]||0);
+      if (r > 0.01) {
+        dims.push({type:'R（円弧）', value:parseFloat(r.toFixed(3)), layer:entity.layer, entity,
+          cx:parseFloat(d[10]||0), cy:parseFloat(d[20]||0), r});
+      }
+      break;
+    }
+    case 'DIMENSION': {
+      const measured = parseFloat(d[42]||d[41]||0);
+      if (measured > 0.01) {
+        const dimType = parseInt(d[70]||0) & 7;
+        const typeNames = ['回転寸法','整列寸法','角度寸法','直径寸法','半径寸法','角度寸法','座標寸法'];
+        dims.push({type: typeNames[dimType]||'寸法', value:parseFloat(measured.toFixed(3)),
+          layer:entity.layer, entity, isDim:true});
+      }
+      break;
+    }
+    case 'TEXT':
+    case 'MTEXT': {
+      // 寸法文字から数値を抽出
+      const txt = (d[1]||'').replace(/[\\{}|]/g,'').trim();
+      const m = txt.match(/^([φΦ∅Ø]?)(\d+(?:\.\d+)?)/);
+      if (m) {
+        const isDia = !!m[1];
+        const val = parseFloat(m[2]);
+        if (val > 0.01 && val < 9999) {
+          dims.push({type: isDia?'直径(テキスト)':'長さ(テキスト)', value:val,
+            layer:entity.layer, entity, fromText:true, raw:txt});
+        }
+      }
+      break;
+    }
+  }
+}
+
+// ===== Canvas DXFビューア =====
+let dxfData = null;
+let viewScale = 1, viewOffX = 0, viewOffY = 0;
+let isDragging = false, dragStartX = 0, dragStartY = 0;
+let activeLayers = new Set();
+let selectedDims = new Set();
+let canvasW = 0, canvasH = 0;
+
+function initCanvas() {
+  const wrap = document.getElementById('dxf-canvas-wrap');
+  const canvas = document.getElementById('dxf-canvas');
+  canvasW = wrap.clientWidth; canvasH = wrap.clientHeight;
+  canvas.width = canvasW; canvas.height = canvasH;
+
+  canvas.addEventListener('wheel', e => {
+    const factor = e.deltaY < 0 ? 1.15 : 0.87;
+    viewScale *= factor;
+    drawDXF();
+    e.preventDefault();
+  }, {passive:false});
+
+  canvas.addEventListener('mousedown', e => { isDragging=true; dragStartX=e.clientX-viewOffX; dragStartY=e.clientY-viewOffY; });
+  canvas.addEventListener('mousemove', e => { if(isDragging){viewOffX=e.clientX-dragStartX; viewOffY=e.clientY-dragStartY; drawDXF();} });
+  canvas.addEventListener('mouseup', ()=>isDragging=false);
+  canvas.addEventListener('mouseleave', ()=>isDragging=false);
+
+  // タッチ対応
+  let lastTouchDist = 0;
+  canvas.addEventListener('touchstart', e=>{
+    if(e.touches.length===1){isDragging=true;dragStartX=e.touches[0].clientX-viewOffX;dragStartY=e.touches[0].clientY-viewOffY;}
+    if(e.touches.length===2)lastTouchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+  });
+  canvas.addEventListener('touchmove', e=>{
+    if(e.touches.length===1&&isDragging){viewOffX=e.touches[0].clientX-dragStartX;viewOffY=e.touches[0].clientY-dragStartY;drawDXF();}
+    if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);viewScale*=d/lastTouchDist;lastTouchDist=d;drawDXF();}
+    e.preventDefault();
+  },{passive:false});
+  canvas.addEventListener('touchend',()=>isDragging=false);
+}
+
+function worldToScreen(wx, wy) {
+  return [wx * viewScale + viewOffX, canvasH - (wy * viewScale + viewOffY)];
+}
+
+function fitView() {
+  if (!dxfData || !dxfData.entities.length) return;
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  dxfData.entities.forEach(e => {
+    const d=e.data;
+    ['10','11'].forEach(k=>{ const v=parseFloat(d[k]);if(!isNaN(v)){minX=Math.min(minX,v);maxX=Math.max(maxX,v);}});
+    ['20','21'].forEach(k=>{ const v=parseFloat(d[k]);if(!isNaN(v)){minY=Math.min(minY,v);maxY=Math.max(maxY,v);}});
+    if(e.type==='CIRCLE'||e.type==='ARC'){const cx=parseFloat(d[10]||0),cy=parseFloat(d[20]||0),r=parseFloat(d[40]||0);minX=Math.min(minX,cx-r);maxX=Math.max(maxX,cx+r);minY=Math.min(minY,cy-r);maxY=Math.max(maxY,cy+r);}
+  });
+  if(!isFinite(minX))return;
+  const pw=maxX-minX, ph=maxY-minY;
+  if(pw<0.001||ph<0.001)return;
+  const margin=30;
+  const sx=(canvasW-margin*2)/pw, sy=(canvasH-margin*2)/ph;
+  viewScale=Math.min(sx,sy)*0.9;
+  viewOffX=(canvasW - pw*viewScale)/2 - minX*viewScale;
+  viewOffY=(canvasH - ph*viewScale)/2 - minY*viewScale;
+  drawDXF();
+}
+
+function zoomIn(){ viewScale*=1.3; drawDXF(); }
+function zoomOut(){ viewScale*=0.77; drawDXF(); }
+
+const LAYER_COLORS = {'0':'#94a3b8','寸法':'#f59e0b','CENTER':'#ef4444','中心線':'#ef4444','外形':'#60a5fa','OUTLINE':'#60a5fa'};
+function layerColor(layer) { return LAYER_COLORS[layer] || '#94a3b8'; }
+
+function drawDXF() {
+  const canvas = document.getElementById('dxf-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvasW, canvasH);
+  ctx.fillStyle = '#1a1d23';
+  ctx.fillRect(0, 0, canvasW, canvasH);
+  if (!dxfData) return;
+
+  dxfData.entities.forEach(e => {
+    if (!activeLayers.has(e.layer)) return;
+    const d = e.data;
+    const color = layerColor(e.layer);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+
+    switch(e.type) {
+      case 'LINE': {
+        const [sx,sy]=worldToScreen(parseFloat(d[10]||0),parseFloat(d[20]||0));
+        const [ex,ey]=worldToScreen(parseFloat(d[11]||0),parseFloat(d[21]||0));
+        ctx.moveTo(sx,sy); ctx.lineTo(ex,ey);
+        break;
+      }
+      case 'CIRCLE': {
+        const [cx,cy]=worldToScreen(parseFloat(d[10]||0),parseFloat(d[20]||0));
+        const r=parseFloat(d[40]||0)*viewScale;
+        ctx.arc(cx,cy,r,0,Math.PI*2);
+        break;
+      }
+      case 'ARC': {
+        const [cx,cy]=worldToScreen(parseFloat(d[10]||0),parseFloat(d[20]||0));
+        const r=parseFloat(d[40]||0)*viewScale;
+        const sa=parseFloat(d[50]||0)*Math.PI/180;
+        const ea=parseFloat(d[51]||0)*Math.PI/180;
+        ctx.arc(cx,cy,r,-sa,-ea,true);
+        break;
+      }
+      case 'TEXT':
+      case 'MTEXT': {
+        const [tx,ty]=worldToScreen(parseFloat(d[10]||0),parseFloat(d[20]||0));
+        const h=Math.max(8,parseFloat(d[40]||3)*viewScale);
+        ctx.font=`${h}px monospace`;
+        ctx.fillStyle=color;
+        ctx.fillText((d[1]||'').replace(/[\\{}|]/g,'').trim(),tx,ty);
+        return;
+      }
+    }
+    ctx.stroke();
+  });
+}
+
+// ===== ファイル読み込み =====
+function loadDXF(event) {
+  const file = event.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    processDXFText(e.target.result, file.name);
+  };
+  reader.readAsText(file, 'Shift_JIS');
+}
+
+function processDXFText(text, filename) {
+  // Shift_JIS文字化けが起きた場合はUTF-8で再試行
+  if (text.includes('?') && !text.includes('SECTION')) {
+    const blob = new Blob([new TextEncoder().encode(text)]);
+    const reader = new FileReader();
+    reader.onload = e => processDXFText(e.target.result, filename);
+    reader.readAsText(blob, 'UTF-8');
+    return;
+  }
+
+  dxfData = parseDXF(text);
+
+  // 全レイヤーをアクティブに
+  activeLayers = new Set(dxfData.layers);
+
+  document.getElementById('upload-area').style.display = 'none';
+  document.getElementById('viewer-area').style.display = 'block';
+
+  initCanvas();
+  setTimeout(()=>{ fitView(); renderLayers(); renderDims(); }, 100);
+  setStep(2);
+  document.getElementById('canvas-info').textContent = `${filename} — ${dxfData.entities.length}エンティティ / ${dxfData.dims.length}寸法検出`;
+}
+
+function loadSampleDXF() {
+  // サンプルDXFを生成（段付き軸：外径50→外径40→M30ねじ）
+  const sample = `0\nSECTION\n2\nENTITIES\n0\nLINE\n8\n外形\n10\n0.0\n20\n0.0\n11\n100.0\n21\n0.0\n0\nLINE\n8\n外形\n10\n0.0\n20\n25.0\n11\n40.0\n21\n25.0\n0\nLINE\n8\n外形\n10\n40.0\n20\n25.0\n11\n40.0\n21\n20.0\n0\nLINE\n8\n外形\n10\n40.0\n20\n20.0\n11\n100.0\n21\n20.0\n0\nCIRCLE\n8\n外形\n10\n0.0\n20\n0.0\n40\n25.0\n0\nTEXT\n8\n寸法\n10\n20.0\n20\n30.0\n40\n3.0\n1\nφ50\n0\nTEXT\n8\n寸法\n10\n70.0\n20\n25.0\n40\n3.0\n1\nφ40\n0\nTEXT\n8\n寸法\n10\n0.0\n20\n-8.0\n40\n3.0\n1\n40\n0\nTEXT\n8\n寸法\n10\n40.0\n20\n-8.0\n40\n3.0\n1\n60\n0\nENDSEC\n0\nEOF\n`;
+  processDXFText(sample, 'sample_shaft.dxf');
+}
+
+function renderLayers() {
+  const el = document.getElementById('layer-list');
+  el.innerHTML = dxfData.layers.map(l =>
+    `<div class="layer-chip ${activeLayers.has(l)?'active':''}" onclick="toggleLayer('${l}')">${l}</div>`
+  ).join('');
+}
+
+function toggleLayer(l) {
+  if (activeLayers.has(l)) activeLayers.delete(l);
+  else activeLayers.add(l);
+  renderLayers(); drawDXF();
+}
+
+function renderDims() {
+  // 重複を排除して値でグループ化
+  const grouped = new Map();
+  dxfData.dims.forEach((d,i) => {
+    const key = `${d.type}_${d.value}`;
+    if (!grouped.has(key)) grouped.set(key, {...d, idx:i, count:1});
+    else grouped.get(key).count++;
+  });
+
+  const el = document.getElementById('dim-list');
+  if (!grouped.size) {
+    el.innerHTML = '<div class="alert alert-warn">寸法が検出されませんでした。<br>DXFにLINE/CIRCLE/TEXT要素が含まれているか確認してください。</div>';
+    return;
+  }
+
+  el.innerHTML = Array.from(grouped.values()).map((d,i) => {
+    const selected = selectedDims.has(`${d.type}_${d.value}`);
+    const typeColor = {
+      '直径':'badge-blue','直径(テキスト)':'badge-blue','半径':'badge-purple','R（円弧）':'badge-purple',
+      '水平長さ':'badge-green','垂直長さ':'badge-amber','寸法':'badge-blue','長さ(テキスト)':'badge-green'
+    }[d.type] || 'badge-blue';
+    return `<div class="dim-item ${selected?'selected':''}" onclick="toggleDim('${d.type}_${d.value}','${d.type}',${d.value})">
+      <div class="dim-label">${d.type}</div>
+      <div class="dim-value">${d.value}<span class="dim-unit">mm</span></div>
+      ${d.count>1?`<span style="font-size:10px;color:var(--text3)">×${d.count}</span>`:''}
+      <div class="dim-type"><span class="badge ${typeColor}" style="font-size:10px">${d.type.includes('径')||d.type.includes('半径')?'径':'長さ'}</span></div>
+    </div>`;
+  }).join('');
+}
+
+const dimSelections = {}; // {key: {type, value}}
+
+function toggleDim(key, type, value) {
+  if (selectedDims.has(key)) {
+    selectedDims.delete(key);
+    delete dimSelections[key];
+  } else {
+    selectedDims.add(key);
+    dimSelections[key] = {type, value};
+  }
+  renderDims();
+  updateMappingFromDims();
+}
+
+function goToMapping() {
+  if (!selectedDims.size) {
+    showToast('寸法を1つ以上選択してください', 'error');
+    return;
+  }
+  setStep(3);
+  updateMappingFromDims();
+}
+
+// ===== 加工種別と寸法マッピング =====
+let currentProc = 'od';
+
+const PROC_FIELDS = {
+  od: [
+    {id:'blank_d',  label:'素材径 (mm)',     dimTypes:['直径','直径(テキスト)'], hint:'最大直径の値'},
+    {id:'fin_d',    label:'仕上げ外径 (mm)', dimTypes:['直径','直径(テキスト)'], hint:'仕上げ後の直径'},
+    {id:'fin_l',    label:'仕上げ長さ (mm)', dimTypes:['水平長さ','垂直長さ','長さ(テキスト)'], hint:'加工長さ'},
+  ],
+  id: [
+    {id:'pre_d',    label:'下穴径 (mm)',     dimTypes:['直径','直径(テキスト)'], hint:'現在の穴径'},
+    {id:'fin_d',    label:'仕上げ内径 (mm)', dimTypes:['直径','直径(テキスト)'], hint:'仕上げ後の内径'},
+    {id:'dep',      label:'ボーリング深さ(mm)',dimTypes:['垂直長さ','水平長さ'], hint:'穴の深さ'},
+  ],
+  thread: [
+    {id:'d',        label:'ねじ外径 (mm)',   dimTypes:['直径','直径(テキスト)'], hint:'ねじの呼び径'},
+    {id:'pitch',    label:'ピッチ (mm)',      dimTypes:[], hint:'例: 1.5, 2.0'},
+    {id:'len',      label:'ねじ長さ (mm)',   dimTypes:['水平長さ','垂直長さ'], hint:'ねじ部の長さ'},
+  ],
+  groove: [
+    {id:'w',        label:'溝幅 (mm)',        dimTypes:['水平長さ','垂直長さ'], hint:'溝の幅'},
+    {id:'d',        label:'溝深さ (mm)',      dimTypes:['垂直長さ','水平長さ'], hint:'溝の深さ'},
+    {id:'x',        label:'X位置-径 (mm)',   dimTypes:['直径','直径(テキスト)'], hint:'溝位置の直径'},
+    {id:'z',        label:'Z位置 (mm)',       dimTypes:['水平長さ'], hint:'端面からの距離（マイナス）'},
+  ],
+  taper: [
+    {id:'d1',       label:'開始径 (mm)',      dimTypes:['直径','直径(テキスト)'], hint:'テーパー開始側の直径'},
+    {id:'d2',       label:'終了径 (mm)',      dimTypes:['直径','直径(テキスト)'], hint:'テーパー終了側の直径'},
+    {id:'len',      label:'テーパー長さ(mm)', dimTypes:['水平長さ','垂直長さ'], hint:'テーパー区間の長さ'},
+  ],
+};
+
+function selectProc(proc, btn) {
+  document.querySelectorAll('.proc-sel-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentProc = proc;
+  updateMappingFromDims();
+}
+
+function updateMappingFromDims() {
+  const fields = PROC_FIELDS[currentProc] || [];
+  const selArr = Object.values(dimSelections);
+
+  // 自動割り当て：dimTypeが一致するものを優先
+  const autoAssign = {};
+  const usedKeys = new Set();
+
+  fields.forEach(f => {
+    for (const s of selArr) {
+      const key = `${s.type}_${s.value}`;
+      if (!usedKeys.has(key) && f.dimTypes.includes(s.type)) {
+        autoAssign[f.id] = s.value;
+        usedKeys.add(key);
+        break;
+      }
+    }
+  });
+
+  const el = document.getElementById('mapping-form');
+  el.innerHTML = fields.map(f => `
+    <div class="map-row">
+      <span class="map-label">${f.label}</span>
+      <span class="map-arrow">←</span>
+      <input class="map-input" type="number" id="mf-${f.id}" value="${autoAssign[f.id]||''}" placeholder="${f.hint}" step="0.1">
+      <span style="font-size:10px;color:var(--text3);margin-left:4px">mm</span>
+    </div>
+  `).join('');
+
+  if (!selArr.length) {
+    el.innerHTML = '<div class="alert alert-info">左の図面から寸法を選択、または直接入力してください。</div>' + el.innerHTML;
+  }
+}
+
+function autoCalcConditions() {
+  const mat = document.getElementById('dxf-mat').value;
+  const finish = document.getElementById('dxf-finish').value;
+  const toolD = 25; // デフォルト工具径
+  const c = calcConditions(mat, '超硬', toolD, finish);
+  if (c) {
+    document.getElementById('dxf-rpm').value = c.rpm;
+    document.getElementById('dxf-feed').value = c.feed;
+    document.getElementById('dxf-depth').value = c.ap;
+    showToast(`切削条件を自動計算: ${c.rpm}rpm / f${c.feed} / ap${c.ap}`);
+  }
+}
+
+// ===== Gコード生成 =====
+let lastDXFGcode = '';
+
+function mf(id, def) { return parseFloat(document.getElementById('mf-'+id)?.value) || def; }
+function cv(id, def) { return parseFloat(document.getElementById('dxf-'+id)?.value) || def; }
+
+function generateFromDXF() {
+  const mat = document.getElementById('dxf-mat').value;
+  const finish = document.getElementById('dxf-finish').value;
+  const progNo = cv('progno', 1000);
+  const rpm   = cv('rpm', 0) || calcConditions(mat,'超硬',25,finish)?.rpm || 1000;
+  const feed  = cv('feed',0) || calcConditions(mat,'超硬',25,finish)?.feed || 0.2;
+  const depth = cv('depth',0) || calcConditions(mat,'超硬',25,finish)?.ap || 1.5;
+
+  let lines = [];
+  let procName = '';
+
+  switch(currentProc) {
+    case 'od': {
+      const bd=mf('blank_d',50), fd=mf('fin_d',45), fl=mf('fin_l',80);
+      const passes=Math.max(1,Math.ceil((bd-fd)/2/depth));
+      procName='外径旋削';
+      lines=[`(外径旋削 ${mat} ${finish})`,`(図面読み込み: 素材径${bd}→仕上げ${fd}mm L:${fl}mm)`,`%`,`O${String(progNo).padStart(4,'0')}`,
+        `G28 U0. W0.`,`G50 S3000`,`G96 S${rpm} M03`,`T0101 M08`,`G00 X${bd+2}. Z2.`];
+      for(let i=1;i<=passes;i++){
+        const cx=Math.max(fd,(bd-depth*2*i)).toFixed(3);
+        lines.push(`G00 X${cx}`,`G01 Z-${fl}. F${feed}`,`G00 X${bd+2}.`,`Z2.`);
+      }
+      lines.push(`G00 X${fd}.`,`G01 Z-${fl}. F${(feed*.6).toFixed(3)}`,`G00 X${bd+5}. Z100.`,`M05 M09`,`G28 U0. W0.`,`M30`,`%`);
+      break;
+    }
+    case 'id': {
+      const pd=mf('pre_d',20), fd=mf('fin_d',25), dep=mf('dep',40);
+      const passes=Math.max(1,Math.ceil((fd-pd)/2/depth));
+      procName='内径ボーリング';
+      lines=[`(内径ボーリング ${mat})`,`(図面読み込み: 下穴${pd}→仕上げ${fd}mm 深:${dep}mm)`,`%`,`O${String(progNo).padStart(4,'0')}`,
+        `G28 U0. W0.`,`G96 S${rpm} M03`,`T0303 M08`,`G00 X${pd-1}. Z2.`];
+      for(let i=1;i<=passes;i++){
+        const cx=(pd+depth*2*i).toFixed(3);
+        lines.push(`G00 X${cx}`,`G01 Z-${dep}. F${feed}`,`G04 X0.3`,`G00 Z2.`);
+      }
+      lines.push(`G00 X${fd}.`,`G01 Z-${dep}. F${(feed*.7).toFixed(3)}`,`G00 Z100.`,`M05 M09`,`G28 U0. W0.`,`M30`,`%`);
+      break;
+    }
+    case 'thread': {
+      const d=mf('d',20), pitch=mf('pitch',1.5), len=mf('len',30);
+      const h=0.6495*pitch, passes=5, cham=1.5;
+      const apP=(h/passes).toFixed(4);
+      procName='ねじ切り';
+      lines=[`(ねじ切り M${d}×P${pitch} 図面読み込み)`,`%`,`O${String(progNo).padStart(4,'0')}`,
+        `G28 U0. W0.`,`G97 S${rpm} M03`,`T0505 M08`,`G00 X${d+2}. Z5.`];
+      for(let i=1;i<=passes;i++){
+        const cx=(d-apP*2*i).toFixed(3);
+        lines.push(`G00 X${cx}`,`G32 Z-${(len+cham).toFixed(1)}. F${pitch}`,`G00 X${d+2}.`,`Z5.`);
+      }
+      lines.push(`G00 X${d+10}. Z100.`,`M05 M09`,`G28 U0. W0.`,`M30`,`%`);
+      break;
+    }
+    case 'groove': {
+      const gw=mf('w',3), gd=mf('d',5), gx=mf('x',40), gz=-(mf('z',30));
+      const finX=(gx-gd*2).toFixed(3);
+      procName='溝入れ';
+      lines=[`(溝入れ 幅:${gw}mm 深:${gd}mm 図面読み込み)`,`%`,`O${String(progNo).padStart(4,'0')}`,
+        `G28 U0. W0.`,`G97 S${rpm} M03`,`T0404 M08`,
+        `G00 X${gx+2}. Z${gz}.`,`G01 X${finX} F${feed}`,`G04 X0.5`,`G01 X${gx+2}.`,`Z100.`,`M05 M09`,`G28 U0. W0.`,`M30`,`%`];
+      break;
+    }
+    case 'taper': {
+      const d1=mf('d1',50), d2=mf('d2',40), tlen=mf('len',20);
+      procName='テーパー';
+      lines=[`(テーパー D${d1}→D${d2} L:${tlen}mm 図面読み込み)`,`%`,`O${String(progNo).padStart(4,'0')}`,
+        `G28 U0. W0.`,`G96 S${rpm} M03`,`T0101 M08`,
+        `G00 X${d1+2}. Z2.`,`G01 X${d1}. Z0. F${feed}`,`G01 X${d2}. Z-${tlen}. F${feed}`,
+        `G00 X${Math.max(d1,d2)+10}. Z100.`,`M05 M09`,`G28 U0. W0.`,`M30`,`%`];
+      break;
+    }
+    default:
+      showToast('加工種別を選択してください','error'); return;
+  }
+
+  lastDXFGcode = lines.join('\n');
+
+  // 表示
+  let n=1;
+  const html = lastDXFGcode.split('\n').map(line => {
+    const num = `<span class="lnum">${String(n++).padStart(4,' ')}</span>`;
+    let l = line.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+    if (l.startsWith('(')||l==='%') return num+`<span class="cm">${l}</span>`;
+    l=l.replace(/\b([GM]\d+)/g,(m,w)=>w.startsWith('G')?`<span class="gw">${w}</span>`:`<span class="mw">${w}</span>`);
+    l=l.replace(/([XZUWICKFSR])(-?[\d.]+)/g,(m,k,v)=>`${k}<span class="vl">${v}</span>`);
+    return num+l;
+  }).join('\n');
+
+  document.getElementById('dxf-gcode-view').innerHTML = html;
+  document.getElementById('dxf-output').style.display = 'block';
+  document.getElementById('dxf-output').scrollIntoView({behavior:'smooth',block:'nearest'});
+  setStep(4);
+  showToast(`${procName} Gコードを生成しました`);
+}
+
+function copyDXFCode()     { copyText(lastDXFGcode); }
+function dlDXFCode()       { downloadText(lastDXFGcode, `O${document.getElementById('dxf-progno').value||1000}_drawing.nc`); }
+function sendDXFToPreview(){ if(!lastDXFGcode)return; sessionStorage.setItem('preview_gcode',lastDXFGcode); window.open('preview.html','_blank'); }
+function saveDXFToLog() {
+  if (!lastDXFGcode) return;
+  const partNo = document.getElementById('dxf-partno').value || prompt('品番:','');
+  if (!partNo) return;
+  LOG_DB.add({partNo, procName: currentProc+' (図面読み込み)', material: document.getElementById('dxf-mat').value,
+    gcode: lastDXFGcode, memo: document.getElementById('dxf-memo').value || '図面読み込みで生成'});
+  showToast('実績に保存しました');
+}
+
+function resetFile() {
+  dxfData=null; selectedDims.clear(); Object.keys(dimSelections).forEach(k=>delete dimSelections[k]);
+  document.getElementById('upload-area').style.display='block';
+  document.getElementById('viewer-area').style.display='none';
+  document.getElementById('dxf-file').value='';
+  setStep(1);
+}
+
+function setStep(n) {
+  [1,2,3,4].forEach(i => {
+    const el = document.getElementById('step'+i);
+    el.classList.remove('active','done');
+    if (i < n) el.classList.add('done');
+    else if (i === n) el.classList.add('active');
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  updateMappingFromDims();
+  autoCalcConditions();
+  // D&Dサポート
+  const zone = document.getElementById('upload-zone');
+  zone.addEventListener('dragover', e=>{e.preventDefault();zone.classList.add('over');});
+  zone.addEventListener('dragleave', ()=>zone.classList.remove('over'));
+  zone.addEventListener('drop', e=>{e.preventDefault();zone.classList.remove('over');const f=e.dataTransfer.files[0];if(f)loadDXF({target:{files:[f]}});});
+});
+</script>
+</body>
+</html>
