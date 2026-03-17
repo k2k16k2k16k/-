@@ -255,10 +255,10 @@
     <div id="proc-taper" class="tab-panel">
       <div class="card-title">テーパー・R加工</div>
       <div class="grid-2">
-        <div class="field"><label>種別</label><select id="tp-type"><option>テーパー旋削</option><option>R面取り</option><option>C面取り</option></select></div>
+        <div class="field"><label>種別</label><select id="tp-type" onchange="onTaperTypeChange()"><option>テーパー旋削</option><option>R面取り</option><option>C面取り</option></select></div>
         <div class="field"><label>開始径 (mm)</label><input type="number" id="tp-d1" placeholder="50"></div>
-        <div class="field"><label>終了径 (mm)</label><input type="number" id="tp-d2" placeholder="40"></div>
-        <div class="field"><label>長さ/R (mm)</label><input type="number" id="tp-len" placeholder="20"></div>
+        <div class="field" id="tp-d2-wrap"><label>終了径 (mm)</label><input type="number" id="tp-d2" placeholder="40"></div>
+        <div class="field"><label id="tp-len-label">長さ/R (mm)</label><input type="number" id="tp-len" placeholder="20"></div>
       </div>
       <div class="card-title" style="margin-top:12px">切削条件 <span class="auto-badge" id="badge-tp" style="display:none">AUTO</span></div>
       <div class="grid-2">
@@ -416,6 +416,14 @@ function applyTool() {
 
   onMatChange();
   showToast(`${t.no} 適用 — ノーズR${t.noseR||0.8} → 理論Ra≈${r.ra}μm / ${c?c.rpm+'rpm':''}`, 'success');
+}
+
+function onTaperTypeChange() {
+  const type = document.getElementById('tp-type').value;
+  const isCham = (type === 'C面取り');
+  document.getElementById('tp-d2-wrap').style.display = isCham ? 'none' : '';
+  document.getElementById('tp-len-label').textContent = isCham ? 'C値 (mm)' : '長さ/R (mm)';
+  document.getElementById('tp-len').placeholder = isCham ? '1' : '20';
 }
 
 // 工具番号を登録工具から自動解決
