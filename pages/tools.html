@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>工具登録 | NC Suite</title>
+<link rel="stylesheet" href="../css/common.css">
+<style>
+.tool-form{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.tool-form .full{grid-column:1/-1}
+.type-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.type-tab{padding:6px 14px;font-size:12px;font-weight:600;border:1px solid var(--border);border-radius:20px;cursor:pointer;background:var(--bg1);color:var(--text2);transition:all .15s}
+.type-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tool-card{background:var(--bg1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:8px;transition:all .15s}
+.tool-card:hover{border-color:var(--border2);box-shadow:var(--shadow)}
+.tool-no{background:var(--accent-l);color:var(--accent);font-family:var(--mono);font-size:14px;font-weight:700;padding:6px 12px;border-radius:var(--radius);min-width:64px;text-align:center}
+.tool-info{flex:1}
+.tool-name{font-size:14px;font-weight:700}
+.tool-meta{font-size:12px;color:var(--text2);margin-top:2px}
+.tool-acts{display:flex;gap:6px}
+.life-bar-wrap{background:var(--bg2);border-radius:4px;height:5px;width:80px;overflow:hidden;margin-top:4px}
+.life-bar{height:100%;border-radius:4px;background:var(--green);transition:width .3s}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a class="nav-logo" href="../index.html">⚙ NC Suite</a>
+  <div class="nav-links">
+    <a class="nav-link" href="../index.html">🏠 <span>ホーム</span></a>
+    <a class="nav-link" href="gcode.html">📝 <span>Gコード生成</span></a>
+    <a class="nav-link" href="compound.html">🔗 <span>複合加工</span></a>
+    <a class="nav-link" href="quick.html">⚡ <span>寸法入力補助</span></a>
+    <a class="nav-link active" href="tools.html">🔧 <span>工具登録</span></a>
+    <a class="nav-link" href="log.html">📋 <span>加工実績</span></a>
+    <a class="nav-link" href="calc.html">🧮 <span>計算ツール</span></a>
+    <a class="nav-link" href="knowledge.html">💡 <span>ナレッジ</span></a>
+    <a class="nav-link" href="drawing.html">📐 <span>図面読込</span></a>
+    <a class="nav-link" href="preview.html">🖥 <span>パスプレビュー</span></a>
+  </div>
+</nav>
+<div class="page">
+  <div class="page-title">🔧 工具登録</div>
+  <div class="page-sub">使用工具を登録・管理。Gコード生成ページで呼び出して使えます。</div>
+
+  <div style="display:grid;grid-template-columns:380px 1fr;gap:20px">
+    <!-- 登録フォーム -->
+    <div class="card">
+      <div class="card-title" id="form-title">新規工具登録</div>
+      <div class="type-tabs" id="type-tabs">
+        <div class="type-tab active" data-type="外径" onclick="setType(this)">外径</div>
+        <div class="type-tab" data-type="内径" onclick="setType(this)">内径</div>
+        <div class="type-tab" data-type="ねじ切り" onclick="setType(this)">ねじ切り</div>
+        <div class="type-tab" data-type="溝入れ" onclick="setType(this)">溝入れ</div>
+        <div class="type-tab" data-type="ドリル" onclick="setType(this)">ドリル</div>
+        <div class="type-tab" data-type="エンドミル" onclick="setType(this)">エンドミル</div>
+        <div class="type-tab" data-type="その他" onclick="setType(this)">その他</div>
+      </div>
+      <div class="tool-form">
+        <div class="field full"><label>工具番号 (例: T0101)</label><input type="text" id="f-no" placeholder="T0101" maxlength="8"></div>
+        <div class="field full"><label>工具名称</label><input type="text" id="f-name" placeholder="例: 外径荒削りチップ TNMG160408"></div>
+        <div class="field"><label>工具材種</label>
+          <select id="f-mat">
+            <option>超硬（コーティング）</option><option>サーメット</option>
+            <option>CBN</option><option>ハイス（HSS）</option><option>ダイヤモンド</option>
+          </select>
+        </div>
+        <div class="field"><label>径 / 幅 (mm)</label><input type="number" id="f-dia" placeholder="25" step="0.1"></div>
+        <div class="field"><label>ノーズR (mm)</label><input type="number" id="f-noseR" placeholder="0.8" step="0.1"></div>
+        <div class="field"><label>工具長 (mm)</label><input type="number" id="f-len" placeholder="150"></div>
+        <div class="field"><label>寿命目安 (min)</label><input type="number" id="f-life" placeholder="60"><div class="hint">0=管理しない</div></div>
+        <div class="field"><label>使用済み時間 (min)</label><input type="number" id="f-used" placeholder="0"></div>
+        <div class="field full"><label>メモ</label><input type="text" id="f-memo" placeholder="推奨素材・注意事項など"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn btn-primary btn-full" onclick="saveToolForm()">💾 登録・更新</button>
+        <button class="btn" onclick="resetForm()">リセット</button>
+      </div>
+    </div>
+
+    <!-- 工具一覧 -->
+    <div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <input type="text" id="tool-search" placeholder="工具番号・名称で検索..." style="flex:1;padding:8px 11px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:var(--sans)" oninput="renderTools()">
+        <select id="tool-filter" style="padding:8px 11px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:var(--sans);background:var(--bg1)" onchange="renderTools()">
+          <option value="">すべて</option>
+          <option>外径</option><option>内径</option><option>ねじ切り</option>
+          <option>溝入れ</option><option>ドリル</option><option>エンドミル</option><option>その他</option>
+        </select>
+      </div>
+      <div id="tool-list"></div>
+    </div>
+  </div>
+</div>
+
+<script src="../js/common.js"></script>
+<script>
+let editId = null;
+let currentType = '外径';
+
+function setType(el) {
+  document.querySelectorAll('.type-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  currentType = el.dataset.type;
+}
+
+function saveToolForm() {
+  const no = document.getElementById('f-no').value.trim();
+  const name = document.getElementById('f-name').value.trim();
+  if (!no || !name) { showToast('工具番号と名称は必須です', 'error'); return; }
+  const data = {
+    type: currentType, no, name,
+    mat:   document.getElementById('f-mat').value,
+    dia:   parseFloat(document.getElementById('f-dia').value)||0,
+    noseR: parseFloat(document.getElementById('f-noseR').value)||0.8,
+    len:   parseFloat(document.getElementById('f-len').value)||0,
+    life:  parseFloat(document.getElementById('f-life').value)||0,
+    used:  parseFloat(document.getElementById('f-used').value)||0,
+    memo:  document.getElementById('f-memo').value,
+  };
+  if (editId) {
+    TOOL_DB.update(editId, data);
+    showToast('工具を更新しました');
+    editId = null;
+    document.getElementById('form-title').textContent = '新規工具登録';
+  } else {
+    TOOL_DB.add(data);
+    showToast('工具を登録しました');
+  }
+  resetForm();
+  renderTools();
+}
+
+function resetForm() {
+  ['f-no','f-name','f-dia','f-noseR','f-len','f-life','f-used','f-memo'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  editId = null;
+  document.getElementById('form-title').textContent = '新規工具登録';
+}
+
+function editTool(id) {
+  const t = TOOL_DB.getAll().find(t => t.id === id); if (!t) return;
+  editId = id;
+  document.getElementById('form-title').textContent = '工具を編集';
+  document.getElementById('f-no').value    = t.no;
+  document.getElementById('f-name').value  = t.name;
+  document.getElementById('f-mat').value   = t.mat;
+  document.getElementById('f-dia').value   = t.dia;
+  document.getElementById('f-noseR').value = t.noseR;
+  document.getElementById('f-len').value   = t.len;
+  document.getElementById('f-life').value  = t.life;
+  document.getElementById('f-used').value  = t.used;
+  document.getElementById('f-memo').value  = t.memo;
+  currentType = t.type;
+  document.querySelectorAll('.type-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.type === t.type);
+  });
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function removeTool(id) {
+  if (!confirm('この工具を削除しますか？')) return;
+  TOOL_DB.remove(id);
+  renderTools();
+  showToast('削除しました');
+}
+
+function renderTools() {
+  const q = (document.getElementById('tool-search').value||'').toLowerCase();
+  const ft = document.getElementById('tool-filter').value;
+  let tools = TOOL_DB.getAll().filter(t => {
+    const matchQ = !q || t.no.toLowerCase().includes(q) || t.name.toLowerCase().includes(q);
+    const matchT = !ft || t.type === ft;
+    return matchQ && matchT;
+  });
+
+  const el = document.getElementById('tool-list');
+  if (!tools.length) {
+    el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);font-size:13px">工具が登録されていません</div>';
+    return;
+  }
+
+  el.innerHTML = tools.map(t => {
+    const lifeRatio = t.life > 0 ? Math.max(0, Math.min(100, Math.round((1 - t.used/t.life)*100))) : 100;
+    const lifeColor = lifeRatio > 50 ? 'var(--green)' : lifeRatio > 20 ? 'var(--amber)' : 'var(--red)';
+    const typeBadge = {
+      '外径':'badge-blue','内径':'badge-purple','ねじ切り':'badge-amber',
+      '溝入れ':'badge-green','ドリル':'badge-blue','エンドミル':'badge-green','その他':'badge-amber'
+    }[t.type] || 'badge-blue';
+    return `<div class="tool-card">
+      <div class="tool-no">${t.no}</div>
+      <div class="tool-info">
+        <div class="tool-name">${t.name}</div>
+        <div class="tool-meta">
+          <span class="badge ${typeBadge}" style="margin-right:6px">${t.type}</span>
+          ${t.dia?'φ'+t.dia+'mm ':''} ${t.noseR?'R'+t.noseR+' ':''} ${t.mat}
+          ${t.memo ? ' · '+t.memo : ''}
+        </div>
+        ${t.life>0 ? `<div class="life-bar-wrap"><div class="life-bar" style="width:${lifeRatio}%;background:${lifeColor}"></div></div>` : ''}
+      </div>
+      <div class="tool-acts">
+        <button class="btn btn-sm" onclick="editTool(${t.id})">編集</button>
+        <button class="btn btn-sm btn-danger" onclick="removeTool(${t.id})">削除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+document.addEventListener('DOMContentLoaded', renderTools);
+</script>
+</body>
+</html>

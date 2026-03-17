@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NC Tool Suite</title>
+<link rel="stylesheet" href="css/common.css">
+<style>
+.hero{background:linear-gradient(135deg,#eff4ff 0%,#f5f6f8 100%);border:1px solid var(--border);border-radius:var(--radius-lg);padding:32px 28px;margin-bottom:24px;display:flex;align-items:center;gap:24px}
+.hero-icon{font-size:52px;flex-shrink:0}
+.hero h1{font-size:24px;font-weight:700;margin-bottom:6px}
+.hero p{color:var(--text2);font-size:14px;line-height:1.7}
+.menu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:24px}
+.menu-card{background:var(--bg1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;text-decoration:none;color:var(--text);transition:all .2s;box-shadow:var(--shadow);display:block}
+.menu-card:hover{border-color:var(--accent);box-shadow:var(--shadow-md);transform:translateY(-2px)}
+.menu-icon{font-size:28px;margin-bottom:10px}
+.menu-name{font-size:15px;font-weight:700;margin-bottom:4px}
+.menu-desc{font-size:12px;color:var(--text2);line-height:1.6}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:24px}
+.recent-section{margin-bottom:24px}
+.recent-title{font-size:14px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.empty-state{text-align:center;padding:32px;color:var(--text3);font-size:13px}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a class="nav-logo" href="index.html">⚙ NC Suite</a>
+  <div class="nav-links">
+    <a class="nav-link active" href="index.html">🏠 <span>ホーム</span></a>
+    <a class="nav-link" href="pages/gcode.html">📝 <span>Gコード生成</span></a>
+    <a class="nav-link" href="pages/compound.html">🔗 <span>複合加工</span></a>
+    <a class="nav-link" href="pages/quick.html">⚡ <span>寸法入力補助</span></a>
+    <a class="nav-link" href="pages/tools.html">🔧 <span>工具登録</span></a>
+    <a class="nav-link" href="pages/log.html">📋 <span>加工実績</span></a>
+    <a class="nav-link" href="pages/calc.html">🧮 <span>計算ツール</span></a>
+    <a class="nav-link" href="pages/knowledge.html">💡 <span>ナレッジ</span></a>
+    <a class="nav-link" href="pages/drawing.html">📐 <span>図面読み込み</span></a>
+    <a class="nav-link" href="pages/preview.html">🖥 <span>パスプレビュー</span></a>
+  </div>
+</nav>
+
+
+  <!-- 自己更新バー -->
+  <div id="update-bar" style="background:var(--bg1);border-bottom:1px solid var(--border);padding:8px 20px;display:flex;align-items:center;gap:12px;font-size:13px">
+    <span style="color:var(--text2)">⚙ NC Tool Suite</span>
+    <span id="current-ver" style="font-family:var(--mono);font-size:12px;color:var(--text3)">v3.1.0</span>
+    <span id="update-status" style="color:var(--text3);font-size:12px"></span>
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+      <button class="btn btn-sm" onclick="checkUpdate()" id="check-btn">🔄 更新確認</button>
+      <button class="btn btn-sm btn-primary" onclick="doUpdate()" id="update-btn" style="display:none">⬆ 更新する</button>
+    </div>
+  </div>
+
+<div class="page">
+  <div class="hero">
+    <div class="hero-icon">⚙</div>
+    <div>
+      <h1>NC Tool Suite</h1>
+      <p>FANUC対応 旋盤・マシニングGコード生成・管理システム<br>APIキー不要・完全ブラウザ動作・データはすべてローカル保存</p>
+    </div>
+  </div>
+
+  <div class="stats-row" id="stats-row">
+    <div class="metric"><div class="metric-label">加工実績件数</div><div class="metric-value" id="stat-logs">0<span class="metric-unit">件</span></div></div>
+    <div class="metric"><div class="metric-label">登録工具数</div><div class="metric-value" id="stat-tools">0<span class="metric-unit">本</span></div></div>
+    <div class="metric"><div class="metric-label">保存テンプレート</div><div class="metric-value" id="stat-tpls">0<span class="metric-unit">件</span></div></div>
+    <div class="metric"><div class="metric-label">対応素材</div><div class="metric-value">15<span class="metric-unit">種</span></div></div>
+  </div>
+
+  <div class="menu-grid">
+    <a class="menu-card" href="pages/gcode.html">
+      <div class="menu-icon">📝</div>
+      <div class="menu-name">Gコード生成</div>
+      <div class="menu-desc">外径・内径・ねじ切り・溝・ドリル・キー溝・フライス・テーパー。切削条件自動計算付き。</div>
+    </a>
+    <a class="menu-card" href="pages/quick.html">
+      <div class="menu-icon">⚡</div>
+      <div class="menu-name">寸法入力補助モード</div>
+      <div class="menu-desc">工程をボタンで追加して寸法を入力するだけ。断面プレビュー付きで複合Gコードを一括生成。</div>
+    </a>
+    <a class="menu-card" href="pages/compound.html">
+      <div class="menu-icon">🔗</div>
+      <div class="menu-name">複合加工ビルダー</div>
+      <div class="menu-desc">複数工程をドラッグ&ドロップで並べて1本のプログラムに。サブプログラム自動採番。</div>
+    </a>
+    <a class="menu-card" href="pages/tools.html">
+      <div class="menu-icon">🔧</div>
+      <div class="menu-name">工具登録</div>
+      <div class="menu-desc">使用工具を登録・管理。コード生成と連動。工具番号・材種・ノーズR・寿命を記録。</div>
+    </a>
+    <a class="menu-card" href="pages/log.html">
+      <div class="menu-icon">📋</div>
+      <div class="menu-name">加工実績ログ</div>
+      <div class="menu-desc">品番・素材・工程・条件を記録。過去のプログラムを検索・再利用。</div>
+    </a>
+    <a class="menu-card" href="pages/calc.html">
+      <div class="menu-icon">🧮</div>
+      <div class="menu-name">計算ツール群</div>
+      <div class="menu-desc">加工時間見積り・公差・はめあい・ねじ下穴・面粗さ・切削負荷・条件比較。</div>
+    </a>
+    <a class="menu-card" href="pages/knowledge.html">
+      <div class="menu-icon">💡</div>
+      <div class="menu-name">ナレッジ</div>
+      <div class="menu-desc">Gコード逆解析・加工ノウハウDB・トラブルシューター。現場の知恵をデジタル化。</div>
+    </a>
+    <a class="menu-card" href="pages/drawing.html">
+      <div class="menu-icon">📐</div>
+      <div class="menu-name">図面読み込み（DXF）</div>
+      <div class="menu-desc">JW_CAD等のDXFファイルを読み込み、寸法を自動抽出してGコードを生成。</div>
+    </a>
+    <a class="menu-card" href="pages/preview.html">
+      <div class="menu-icon">🖥</div>
+      <div class="menu-name">パスプレビュー</div>
+      <div class="menu-desc">GコードをWebGL(Three.js)で3D可視化。工具軌跡・干渉確認。</div>
+    </a>
+  </div>
+
+  <div class="recent-section">
+    <div class="recent-title">📋 最近の加工実績</div>
+    <div class="card">
+      <div id="recent-logs"><div class="empty-state">まだ実績がありません。Gコード生成後に「実績保存」すると記録されます。</div></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/common.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('stat-logs').innerHTML  = LOG_DB.getAll().length + '<span class="metric-unit">件</span>';
+  document.getElementById('stat-tools').innerHTML = TOOL_DB.getAll().length + '<span class="metric-unit">本</span>';
+  document.getElementById('stat-tpls').innerHTML  = TPL_DB.getAll().length + '<span class="metric-unit">件</span>';
+
+  const logs = LOG_DB.getAll().slice(0, 5);
+  if (logs.length) {
+    document.getElementById('recent-logs').innerHTML =
+      `<table class="tbl">
+        <thead><tr><th>日時</th><th>品番</th><th>工程</th><th>素材</th><th>メモ</th></tr></thead>
+        <tbody>${logs.map(l => `<tr>
+          <td style="white-space:nowrap;color:var(--text3)">${fmtDate(l.createdAt)}</td>
+          <td><strong>${l.partNo||'-'}</strong></td>
+          <td><span class="badge badge-blue">${l.procName||'-'}</span></td>
+          <td>${l.material||'-'}</td>
+          <td style="color:var(--text2)">${l.memo||''}</td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+  }
+});
+</script>
+
+<script>
+const REPO_RAW = 'https://raw.githubusercontent.com/k2k16k2k16k/nc-tool-suite/main';
+const CURRENT_VERSION = '3.1.0';
+let latestInfo = null;
+
+async function checkUpdate() {
+  const btn = document.getElementById('check-btn');
+  const status = document.getElementById('update-status');
+  btn.textContent = '確認中...';
+  btn.disabled = true;
+  status.textContent = '';
+
+  try {
+    const res = await fetch(REPO_RAW + '/version.json?t=' + Date.now());
+    if (!res.ok) throw new Error('取得失敗');
+    latestInfo = await res.json();
+    const latest = latestInfo.version;
+
+    if (latest === CURRENT_VERSION) {
+      status.textContent = '✅ 最新版です';
+      status.style.color = 'var(--green)';
+    } else {
+      status.innerHTML = `🆕 新バージョン <strong>${latest}</strong> があります`;
+      status.style.color = 'var(--accent)';
+      document.getElementById('update-btn').style.display = 'inline-flex';
+    }
+  } catch(e) {
+    status.textContent = '⚠ 確認できませんでした（オフライン？）';
+    status.style.color = 'var(--amber)';
+  }
+  btn.textContent = '🔄 更新確認';
+  btn.disabled = false;
+}
+
+async function doUpdate() {
+  if (!latestInfo) return;
+  const btn = document.getElementById('update-btn');
+  btn.textContent = '更新中...';
+  btn.disabled = true;
+
+  const files = Object.keys(latestInfo.files);
+  const results = [];
+  let success = 0, fail = 0;
+
+  for (const file of files) {
+    try {
+      const res = await fetch(REPO_RAW + '/' + file + '?t=' + Date.now());
+      if (!res.ok) throw new Error();
+      const text = await res.text();
+
+      // ダウンロードリンクを生成
+      const blob = new Blob([text], {type: 'text/html'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.split('/').pop();
+      // 自動ダウンロードは1ファイルずつ
+      results.push({file, url, a, text});
+      success++;
+    } catch(e) {
+      fail++;
+    }
+  }
+
+  // 更新確認ダイアログを表示
+  showUpdateDialog(results, latestInfo);
+  btn.textContent = '⬆ 更新する';
+  btn.disabled = false;
+}
+
+function showUpdateDialog(results, info) {
+  const existing = document.getElementById('update-dialog');
+  if (existing) existing.remove();
+
+  const changelog = (info.changelog || []).slice(0, 3).map(c =>
+    `<li style="margin-bottom:4px;font-size:12px;color:var(--text2)">${c}</li>`
+  ).join('');
+
+  const dialog = document.createElement('div');
+  dialog.id = 'update-dialog';
+  dialog.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  dialog.innerHTML = `
+    <div style="background:var(--bg1);border-radius:12px;padding:24px;max-width:560px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+      <div style="font-size:16px;font-weight:700;margin-bottom:6px">🆕 バージョン ${info.version} に更新</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px">${info.updated}</div>
+      <ul style="margin-bottom:16px;padding-left:16px">${changelog}</ul>
+      <div style="background:var(--bg2);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:var(--text2);line-height:1.8">
+        📁 更新ファイル: <strong style="color:var(--text)">${results.length}個</strong><br>
+        以下のファイルがダウンロードされます。<br>
+        <code style="font-size:11px;color:var(--accent)">nc-tool-suite\</code> フォルダに上書きしてください。
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px" id="file-list">
+        ${results.map(r => `<span style="font-size:11px;background:var(--accent-l);color:var(--accent);padding:2px 8px;border-radius:4px">${r.file}</span>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="document.getElementById('update-dialog').remove()" style="padding:8px 16px;border:1px solid var(--border);border-radius:8px;background:var(--bg1);cursor:pointer;font-family:var(--sans);font-size:13px">キャンセル</button>
+        <button onclick="downloadAll()" id="dl-all-btn" style="padding:8px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-family:var(--sans);font-size:13px">⬇ 全ファイルをダウンロード</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(dialog);
+
+  // グローバルに結果を保持
+  window._updateResults = results;
+}
+
+async function downloadAll() {
+  const results = window._updateResults || [];
+  const btn = document.getElementById('dl-all-btn');
+  btn.textContent = 'ダウンロード中...';
+  btn.disabled = true;
+
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    await new Promise(resolve => {
+      setTimeout(() => {
+        const a = document.createElement('a');
+        a.href = r.url;
+        a.download = r.file.split('/').pop();
+        a.click();
+        resolve();
+      }, i * 300); // 300ms間隔でダウンロード
+    });
+  }
+
+  btn.textContent = '✅ ダウンロード完了';
+  setTimeout(() => {
+    document.getElementById('update-dialog').remove();
+    const status = document.getElementById('update-status');
+    status.textContent = '📁 ダウンロード完了 — フォルダに上書きしてください';
+    status.style.color = 'var(--green)';
+    document.getElementById('update-btn').style.display = 'none';
+  }, 1000);
+}
+</script>
+
+</body>
+</html>
