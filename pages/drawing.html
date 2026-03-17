@@ -271,6 +271,25 @@ if (localStorage.getItem('guide_open')) {
           <option value="C3604">C3604</option>
         </select>
       </div>
+      <div class="field">
+        <label>加工モード</label>
+        <div style="display:flex;gap:4px;margin-top:2px">
+          <button class="btn btn-sm active" id="dxf-mode-single" onclick="dxfSetMode('single')" style="font-size:11px">単品</button>
+          <button class="btn btn-sm" id="dxf-mode-bar" onclick="dxfSetMode('bar')" style="font-size:11px;color:var(--amber);border-color:var(--amber)">バーフィーダー</button>
+        </div>
+      </div>
+      <div id="dxf-barfeeder-strip" style="display:none;margin-top:10px;padding:10px;background:var(--amber-l);border-radius:var(--radius);border:1px solid var(--amber)">
+        <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:8px">📦 バーフィーダー設定</div>
+        <div class="grid-2">
+          <div class="field" style="margin-bottom:6px"><label>突っ切り工具No.</label><input type="text" id="dxf-bf-tool" value="T0400"></div>
+          <div class="field" style="margin-bottom:6px"><label>バイト幅 (mm)</label><input type="number" id="dxf-bf-width" value="3" step="0.5"></div>
+          <div class="field" style="margin-bottom:6px"><label>切断rpm</label><input type="number" id="dxf-bf-rpm" value="300"></div>
+          <div class="field" style="margin-bottom:6px"><label>切断送り(mm/rev)</label><input type="number" id="dxf-bf-feed" value="0.03" step="0.01"></div>
+        </div>
+        <div class="field" style="margin-bottom:0"><label>繰り返し指令</label>
+          <select id="dxf-bf-end"><option value="M99">M99（サブプログラムループ）</option><option value="M30">M30（通常終了）</option></select>
+        </div>
+      </div>
     </div>
 
     <!-- 複合工程リスト -->
@@ -907,6 +926,43 @@ function autoCalcStep(idx) {
   showToast(`工程${idx+1}: 切削条件を自動計算 ${c.rpm}rpm / f${c.feed} / ap${c.ap}`);
 }
 
+// ===== バーフィーダーモード =====
+let dxfBarFeederMode = false;
+function dxfSetMode(mode) {
+  dxfBarFeederMode = (mode === 'bar');
+  document.getElementById('dxf-mode-single').classList.toggle('active', !dxfBarFeederMode);
+  document.getElementById('dxf-mode-bar').classList.toggle('active', dxfBarFeederMode);
+  document.getElementById('dxf-barfeeder-strip').style.display = dxfBarFeederMode ? 'block' : 'none';
+}
+
+function dxfGenCutoff(outerDia, finLen) {
+  const tool   = document.getElementById('dxf-bf-tool').value  || 'T0400';
+  const width  = parseFloat(document.getElementById('dxf-bf-width').value) || 3;
+  const rpm    = parseInt(document.getElementById('dxf-bf-rpm').value)   || 300;
+  const feed   = parseFloat(document.getElementById('dxf-bf-feed').value) || 0.03;
+  const endCmd = document.getElementById('dxf-bf-end').value || 'M99';
+  const cutZ   = (finLen + width / 2).toFixed(2);
+  const safeX  = (outerDia + 5).toFixed(1);
+  return [
+    ``,
+    `(突っ切り)`,
+    `G00 X${safeX}. Z100.`,
+    `M05 M09`,
+    `${tool}`,
+    `G97 S${rpm} M03`,
+    `M08`,
+    `G00 X${(outerDia + 2).toFixed(1)}. Z-${cutZ}.`,
+    `G01 X0. F${feed}`,
+    `G04 X0.3`,
+    `G00 X${safeX}.`,
+    `Z100.`,
+    `M05 M09`,
+    `G28 U0. W0.`,
+    endCmd,
+    `%`
+  ];
+}
+
 // ===== Gコード生成（複合加工対応） =====
 let lastDXFGcode = '';
 
@@ -998,7 +1054,18 @@ function generateFromDXF() {
     allLines.push(`G28 U0. W0.`);
   });
 
-  allLines.push(``, `M05`, `M30`, `%`);
+  if (dxfBarFeederMode) {
+    const odIdx = compoundSteps.findIndex(s => s.proc === 'od');
+    if (odIdx >= 0) {
+      const outerD = parseFloat(document.getElementById(`s${odIdx}-mf-blank_d`)?.value || compoundSteps[odIdx].params.blank_d) || 50;
+      const finLen = parseFloat(document.getElementById(`s${odIdx}-mf-fin_l`)?.value  || compoundSteps[odIdx].params.fin_l)   || 80;
+      allLines.push(...dxfGenCutoff(outerD, finLen));
+    } else {
+      allLines.push(``, `M05`, `M30`, `%`);
+    }
+  } else {
+    allLines.push(``, `M05`, `M30`, `%`);
+  }
   lastDXFGcode = allLines.join('\n');
 
   let n = 1;

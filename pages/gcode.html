@@ -73,7 +73,25 @@
         <option>荒削り</option><option>中削り</option><option>仕上げ</option>
       </select>
     </div>
+    <div class="field">
+      <label>加工モード</label>
+      <div style="display:flex;gap:4px;margin-top:2px">
+        <button class="btn btn-sm active" id="mode-single" onclick="setMode('single')" style="font-size:11px">単品</button>
+        <button class="btn btn-sm" id="mode-bar" onclick="setMode('bar')" style="font-size:11px;color:var(--amber);border-color:var(--amber)">バーフィーダー</button>
+      </div>
+    </div>
     <button class="btn btn-primary btn-sm" onclick="applyAuto()">⚡ 自動入力</button>
+  </div>
+  <!-- バーフィーダー設定バー -->
+  <div id="barfeeder-strip" style="display:none;background:var(--amber-l);border-bottom:1px solid var(--border);padding:10px 16px;gap:10px;flex-wrap:wrap;align-items:flex-end">
+    <span style="font-size:11px;font-weight:700;color:var(--amber);white-space:nowrap">📦 バーフィーダー設定</span>
+    <div class="field" style="margin:0;min-width:90px"><label>突っ切り工具No.</label><input type="text" id="bf-tool" value="T0400"></div>
+    <div class="field" style="margin:0;min-width:80px"><label>バイト幅 (mm)</label><input type="number" id="bf-width" value="3" step="0.5"></div>
+    <div class="field" style="margin:0;min-width:80px"><label>切断rpm</label><input type="number" id="bf-rpm" value="300"></div>
+    <div class="field" style="margin:0;min-width:90px"><label>切断送り(mm/rev)</label><input type="number" id="bf-feed" value="0.03" step="0.01"></div>
+    <div class="field" style="margin:0;min-width:130px"><label>繰り返し指令</label>
+      <select id="bf-end"><option value="M99">M99（サブプログラムループ）</option><option value="M30">M30（通常終了）</option></select>
+    </div>
   </div>
   <!-- 推奨値表示 -->
   <div id="mat-chips" style="padding:8px 16px;display:flex;gap:8px;flex-wrap:wrap;background:var(--bg1);border-bottom:1px solid var(--border);font-size:11px"></div>
@@ -407,6 +425,43 @@ function resolveToolNo(proc) {
   return defaultMap[proc] || 'T0101';
 }
 
+// バーフィーダーモード
+let barFeederMode = false;
+function setMode(mode) {
+  barFeederMode = (mode === 'bar');
+  document.getElementById('mode-single').classList.toggle('active', !barFeederMode);
+  document.getElementById('mode-bar').classList.toggle('active', barFeederMode);
+  const strip = document.getElementById('barfeeder-strip');
+  strip.style.display = barFeederMode ? 'flex' : 'none';
+}
+
+function genCutoff(outerDia, finLen) {
+  const tool  = document.getElementById('bf-tool').value  || 'T0400';
+  const width = parseFloat(document.getElementById('bf-width').value) || 3;
+  const rpm   = parseInt(document.getElementById('bf-rpm').value)   || 300;
+  const feed  = parseFloat(document.getElementById('bf-feed').value) || 0.03;
+  const endCmd = document.getElementById('bf-end').value || 'M99';
+  const cutZ  = (finLen + width / 2).toFixed(2);
+  const safeX = (outerDia + 5).toFixed(1);
+  return [
+    `(突っ切り)`,
+    `G00 X${safeX}. Z100.`,
+    `M05 M09`,
+    `${tool}`,
+    `G97 S${rpm} M03`,
+    `M08`,
+    `G00 X${(outerDia + 2).toFixed(1)}. Z-${cutZ}.`,
+    `G01 X0. F${feed}`,
+    `G04 X0.3`,
+    `G00 X${safeX}.`,
+    `Z100.`,
+    `M05 M09`,
+    `G28 U0. W0.`,
+    endCmd,
+    `%`
+  ];
+}
+
 // Gコード生成エンジン（工具登録連動）
 function generate(proc) {
   const matKey = v('mat'); const fin = v('finish');
@@ -423,11 +478,17 @@ function generate(proc) {
       const cx=Math.max(fd,(bd-dep*2*i)).toFixed(3);
       lines.push(`G00 X${cx}`,`G01 Z-${fl}. F${feed}`,`G00 X${bd+2}.`,`Z2.`);
     }
-    lines.push(`G00 X${fd}.`,`G01 Z-${fl}. F${(feed*.6).toFixed(3)}`,`G00 X${bd+5}. Z100.`,`M05 M09`,`G28 U0. W0.`,`M30`,`%`);
+    if (barFeederMode) {
+      lines.push(`G00 X${fd}.`,`G01 Z-${fl}. F${(feed*.6).toFixed(3)}`,...genCutoff(bd,fl));
+    } else {
+      lines.push(`G00 X${fd}.`,`G01 Z-${fl}. F${(feed*.6).toFixed(3)}`,`G00 X${bd+5}. Z100.`,`M05 M09`,`G28 U0. W0.`,`M30`,`%`);
+    }
     gcode=lines.join('\n');
     steps=[{t:'安全復帰・初期設定',d:'G28で原点復帰。G50で主軸最高回転数制限。G96で周速一定制御をON。'},
       {t:`粗削り${passes}パス`,d:`切込み${dep}mmずつ${passes}回繰り返し。素材径${bd}mmから仕上げ径${fd}mmまで加工。`},
-      {t:'仕上げパス',d:`送り${(feed*.6).toFixed(3)}mm/revに落として最終寸法へ。`}];
+      {t:'仕上げパス',d:`送り${(feed*.6).toFixed(3)}mm/revに落として最終寸法へ。`},
+      ...(barFeederMode?[{t:'突っ切り＆ループ',d:`バーフィーダーモード: 仕上げ後に突っ切りを行い、${document.getElementById('bf-end').value}で${document.getElementById('bf-end').value==='M99'?'サブプログラムループ':'通常終了'}。`}]:[])
+    ];
   }else if(proc==='id'){
     const pd=fv('id-pre-d',20),fd=fv('id-fin-d',25),dep=fv('id-depth',40);
     const rpm=fv('id-rpm',800),feed=fv('id-feed',.15),ap=fv('id-ap',.5);
