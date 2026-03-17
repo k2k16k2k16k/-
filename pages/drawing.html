@@ -1020,7 +1020,7 @@ function generateFromDXF() {
 
 function copyDXFCode()     { copyText(lastDXFGcode); }
 function dlDXFCode()       { downloadText(lastDXFGcode, `O${document.getElementById('dxf-progno').value||1000}_drawing.nc`); }
-function sendDXFToPreview(){ if(!lastDXFGcode)return; sessionStorage.setItem('preview_gcode',lastDXFGcode); window.open('preview.html','_blank'); }
+function sendDXFToPreview(){ if(!lastDXFGcode)return; sessionStorage.setItem('preview_gcode',lastDXFGcode); sessionStorage.setItem('preview_source','図面読み込み'); window.open('preview.html','_blank'); }
 function saveDXFToLog() {
   if (!lastDXFGcode) return;
   const partNo = document.getElementById('dxf-partno').value || prompt('品番:','');

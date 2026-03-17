@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>寸法入力補助 | NC Suite</title>
+<link rel="stylesheet" href="../css/common.css">
+<style>
+.q-layout{display:grid;grid-template-columns:1fr 340px;gap:0;min-height:calc(100vh - 54px)}
+.q-left{border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+.q-right{overflow-y:auto;background:var(--bg)}
+
+/* 工程パレット */
+.proc-palette{padding:12px 16px;background:var(--bg1);border-bottom:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.proc-palette span{font-size:11px;color:var(--text2);margin-right:4px}
+.pp-btn{padding:5px 13px;font-size:12px;font-weight:700;border:1px solid var(--border);border-radius:20px;cursor:pointer;background:var(--bg1);color:var(--text2);transition:all .12s;font-family:var(--sans)}
+.pp-btn:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+.pp-od{border-color:#3B6D11;color:#3B6D11}.pp-od:hover{background:var(--green-l)}
+.pp-id{border-color:#185FA5;color:#185FA5}.pp-id:hover{background:var(--accent-l)}
+.pp-th{border-color:#854F0B;color:#854F0B}.pp-th:hover{background:var(--amber-l)}
+.pp-gr{border-color:#993556;color:#993556}.pp-gr:hover{background:var(--red-l)}
+.pp-ta{border-color:#534AB7;color:#534AB7}.pp-ta:hover{background:var(--purple-l)}
+.pp-dr{border-color:#0F6E56;color:#0F6E56}.pp-dr:hover{background:var(--green-l)}
+.pp-kw{border-color:#185FA5;color:#185FA5}.pp-kw:hover{background:var(--accent-l)}
+.pp-cf{border-color:#dc2626;color:#dc2626}.pp-cf:hover{background:var(--red-l)}
+
+/* 素材バー */
+.mat-strip{padding:10px 16px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.mat-strip .field{margin:0;min-width:100px}
+.mat-strip label{font-size:10px}
+.mat-strip select,.mat-strip input{font-size:12px;padding:5px 8px}
+.btn-auto-all{padding:6px 12px;font-size:11px;font-weight:700;background:var(--accent);color:var(--bg0,#0d1117);border:none;border-radius:var(--radius);cursor:pointer;font-family:var(--sans);white-space:nowrap}
+
+/* 工程リスト */
+.steps-wrap{flex:1;padding:14px 16px;overflow-y:auto}
+.empty-hint{border:2px dashed var(--border);border-radius:var(--radius-lg);padding:36px;text-align:center;color:var(--text3);font-size:13px}
+
+/* 工程カード */
+.step-card{background:var(--bg1);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;transition:border-color .15s}
+.step-card:hover{border-color:var(--border2)}
+.step-head{display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;user-select:none}
+.step-no{width:20px;height:20px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0}
+.sn-od{background:#3B6D11}.sn-id{background:#185FA5}.sn-th{background:#854F0B}
+.sn-gr{background:#993556}.sn-ta{background:#534AB7}.sn-dr{background:#0F6E56}
+.sn-kw{background:#185FA5}.sn-cf{background:#dc2626}
+.step-name{font-size:13px;font-weight:700;color:var(--text);flex:1}
+.step-summary{font-size:11px;color:var(--text2);font-family:var(--mono)}
+.step-acts{display:flex;gap:3px}
+.sact{background:none;border:none;cursor:pointer;font-size:13px;padding:2px 6px;border-radius:3px;color:var(--text3);transition:all .12s;font-family:var(--sans)}
+.sact:hover{color:var(--red);background:var(--red-l)}
+.sact.up,.sact.dn{color:var(--text3)}.sact.up:hover,.sact.dn:hover{color:var(--accent);background:var(--accent-l)}
+.step-body{display:none;border-top:1px solid var(--border);padding:12px}
+.step-card.open .step-body{display:block}
+.inline-grid{display:flex;gap:10px;flex-wrap:wrap}
+.inline-field{display:flex;flex-direction:column;gap:3px;min-width:80px}
+.inline-field label{font-size:10px;color:var(--text2);font-weight:500;letter-spacing:.3px}
+.inline-field input,.inline-field select{padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:var(--sans);background:var(--bg1);color:var(--text);outline:none;transition:border-color .15s}
+.inline-field input:focus,.inline-field select:focus{border-color:var(--accent)}
+.inline-field input.auto{border-color:var(--green);color:var(--green)}
+
+/* プレビュー断面図 */
+.preview-wrap{padding:12px 16px;background:var(--bg1);border-top:1px solid var(--border);flex-shrink:0}
+.preview-label{font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:600}
+#preview-svg{width:100%;display:block}
+
+/* 生成ボタン */
+.gen-bar{padding:12px 16px;background:var(--bg1);border-top:1px solid var(--border);flex-shrink:0;display:flex;gap:8px}
+.btn-gen-all{flex:1;padding:11px;background:var(--accent);color:var(--bg1);border:none;border-radius:var(--radius);font-size:14px;font-weight:700;cursor:pointer;font-family:var(--sans);transition:background .15s}
+.btn-gen-all:hover{background:var(--accent2,#ffc107)}
+
+/* 出力 */
+.out-header{background:var(--bg1);border-bottom:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:10}
+.out-header span{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px}
+.out-acts{margin-left:auto;display:flex;gap:5px}
+.gcode{font-family:var(--mono);font-size:11px;padding:14px;white-space:pre;overflow-x:auto;color:#22c55e;line-height:1.9;background:#111318;min-height:300px}
+.gcode .cm{color:#6b7280}.gcode .gw{color:#93c5fd}.gcode .mw{color:#fca5a5}.gcode .vl{color:#fcd34d}.gcode .lnum{color:#374151;user-select:none;margin-right:8px}
+.placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;color:var(--text3);gap:10px;font-size:12px;text-align:center;padding:20px}
+
+@media(max-width:900px){.q-layout{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a class="nav-logo" href="../index.html">⚙ NC Suite</a>
+  <div class="nav-links">
+    <a class="nav-link" href="../index.html">🏠 <span>ホーム</span></a>
+    <a class="nav-link" href="gcode.html">📝 <span>Gコード生成</span></a>
+    <a class="nav-link" href="compound.html">🔗 <span>複合加工</span></a>
+    <a class="nav-link active" href="quick.html">⚡ <span>寸法入力補助</span></a>
+    <a class="nav-link" href="tools.html">🔧 <span>工具登録</span></a>
+    <a class="nav-link" href="log.html">📋 <span>加工実績</span></a>
+    <a class="nav-link" href="calc.html">🧮 <span>計算ツール</span></a>
+    <a class="nav-link" href="knowledge.html">💡 <span>ナレッジ</span></a>
+    <a class="nav-link" href="drawing.html">📐 <span>図面読込</span></a>
+    <a class="nav-link" href="preview.html">🖥 <span>プレビュー</span></a>
+  </div>
+</nav>
+
+<div class="q-layout">
+<!-- 左：入力 -->
+<div class="q-left">
+
+  <!-- 工程追加パレット -->
+  <div class="proc-palette">
+    <span>＋ 工程追加：</span>
+    <button class="pp-btn pp-od" onclick="addStep('od')">外径</button>
+    <button class="pp-btn pp-id" onclick="addStep('id')">内径</button>
+    <button class="pp-btn pp-th" onclick="addStep('th')">ねじ切り</button>
+    <button class="pp-btn pp-gr" onclick="addStep('gr')">溝入れ</button>
+    <button class="pp-btn pp-ta" onclick="addStep('ta')">テーパー・R</button>
+    <button class="pp-btn pp-dr" onclick="addStep('dr')">横穴ドリル</button>
+    <button class="pp-btn pp-kw" onclick="addStep('kw')">キー溝</button>
+    <button class="pp-btn pp-cf" onclick="addStep('cf')">突切り</button>
+  </div>
+
+  <!-- 素材バー -->
+  <div class="mat-strip">
+    <div class="field"><label>素材</label>
+      <select id="q-mat" onchange="applyAutoAll()">
+        <option value="S45C">S45C</option><option value="SS400">SS400</option>
+        <option value="SCM440">SCM440</option><option value="SUS304">SUS304</option>
+        <option value="SUS316">SUS316</option><option value="A2017">A2017</option>
+        <option value="A5052">A5052</option><option value="A6061">A6061</option>
+        <option value="C3604">C3604</option>
+      </select>
+    </div>
+    <div class="field"><label>工具材種</label>
+      <select id="q-toolmat" onchange="applyAutoAll()">
+        <option>超硬</option><option>サーメット</option><option>CBN</option><option>ハイス</option>
+      </select>
+    </div>
+    <div class="field" style="max-width:80px"><label>工具径(mm)</label>
+      <input type="number" id="q-tooldia" value="25" step="0.5" oninput="applyAutoAll()">
+    </div>
+    <div class="field" style="max-width:80px"><label>仕上げ</label>
+      <select id="q-finish" onchange="applyAutoAll()">
+        <option>荒削り</option><option>中削り</option><option>仕上げ</option>
+      </select>
+    </div>
+    <div class="field" style="max-width:80px"><label>プログラム番号</label>
+      <input type="number" id="q-progno" value="1000" min="1" max="9999">
+    </div>
+    <button class="btn-auto-all" onclick="applyAutoAll()">⚡ 全工程に自動入力</button>
+  </div>
+
+  <!-- 工程リスト -->
+  <div class="steps-wrap" id="steps-wrap">
+    <div class="empty-hint" id="empty-hint">
+      上のボタンから工程を追加してください<br>
+      <span style="font-size:11px;opacity:.6">外径→段付き→ねじ切りの順に追加すると複合プログラムが生成されます</span>
+    </div>
+  </div>
+
+  <!-- 断面プレビュー -->
+  <div class="preview-wrap" id="preview-wrap" style="display:none">
+    <div class="preview-label">📐 形状プレビュー（入力値から自動生成）</div>
+    <svg id="preview-svg" height="90" viewBox="0 0 560 90"></svg>
+  </div>
+
+  <!-- 生成ボタン -->
+  <div class="gen-bar">
+    <button class="btn-gen-all" onclick="generateAll()">▶ 複合Gコードを一括生成</button>
+    <button class="btn" onclick="clearAll()">全消去</button>
+    <button class="btn" onclick="saveToLog()">📋 実績保存</button>
+  </div>
+</div>
+
+<!-- 右：出力 -->
+<div class="q-right">
+  <div class="out-header">
+    <span id="out-label">Gコード出力</span>
+    <div class="out-acts">
+      <button class="ibtn" onclick="copyOut()">コピー</button>
+      <button class="ibtn" onclick="dlOut()">DL(.nc)</button>
+      <button class="ibtn" onclick="previewOut()">🖥 3D確認</button>
+    </div>
+  </div>
+  <div id="out-area">
+    <div class="placeholder">
+      <div style="font-size:36px;opacity:.2">⚡</div>
+      <p>工程を追加して<br>「▶ 複合Gコードを一括生成」を押してください</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<script src="../js/common.js"></script>
+<script>
+// ===== 工程定義 =====
+const DEFS = {
+  od:{name:'外径旋削',   color:'sn-od', fields:[
+    {id:'blank_d', label:'素材径(mm)',    def:50,  type:'number', step:.1},
+    {id:'fin_d',   label:'仕上げ外径(mm)',def:45,  type:'number', step:.1},
+    {id:'fin_l',   label:'加工長さ(mm)',  def:80,  type:'number', step:.1},
+    {id:'rpm',     label:'回転数(rpm)',   def:1000,type:'number', auto:true},
+    {id:'feed',    label:'送り(mm/rev)',  def:.2,  type:'number', step:.01, auto:true},
+    {id:'depth',   label:'切込み(mm)',    def:1.5, type:'number', step:.1,  auto:true},
+  ]},
+  id:{name:'内径ボーリング',color:'sn-id', fields:[
+    {id:'pre_d',  label:'下穴径(mm)',    def:20, type:'number', step:.1},
+    {id:'fin_d',  label:'仕上げ内径(mm)',def:25, type:'number', step:.1},
+    {id:'dep',    label:'深さ(mm)',       def:40, type:'number', step:.1},
+    {id:'type',   label:'穴種別',         def:'通し穴', type:'select', opts:['通し穴','止まり穴']},
+    {id:'rpm',    label:'回転数(rpm)',    def:800,type:'number', auto:true},
+    {id:'feed',   label:'送り(mm/rev)',   def:.15,type:'number', step:.01, auto:true},
+    {id:'ap',     label:'切込み(mm)',     def:.5, type:'number', step:.1,  auto:true},
+  ]},
+  th:{name:'ねじ切り',   color:'sn-th', fields:[
+    {id:'d',     label:'ねじ外径(mm)', def:20,  type:'number', step:.1},
+    {id:'pitch', label:'ピッチ(mm)',   def:1.5, type:'number', step:.25},
+    {id:'len',   label:'ねじ長さ(mm)', def:30,  type:'number', step:.1},
+    {id:'type',  label:'種別',          def:'外ねじ(G32)', type:'select', opts:['外ねじ(G32)','外ねじサイクル(G92)','内ねじ']},
+    {id:'rpm',   label:'回転数(rpm)',   def:500, type:'number', auto:true},
+    {id:'pass',  label:'切込み回数',    def:5,   type:'number', auto:true},
+  ]},
+  gr:{name:'溝入れ',     color:'sn-gr', fields:[
+    {id:'w',    label:'溝幅(mm)',      def:3,   type:'number', step:.5},
+    {id:'d',    label:'溝深さ(mm)',    def:5,   type:'number', step:.1},
+    {id:'x',    label:'X位置(径mm)',  def:40,  type:'number', step:.1},
+    {id:'z',    label:'Z位置(mm)',    def:-30, type:'number'},
+    {id:'type', label:'種別',           def:'外径溝入れ', type:'select', opts:['外径溝入れ','突切り','内径溝入れ']},
+    {id:'rpm',  label:'回転数(rpm)',   def:600, type:'number', auto:true},
+    {id:'feed', label:'送り(mm/rev)',  def:.05, type:'number', step:.01, auto:true},
+  ]},
+  ta:{name:'テーパー・R',color:'sn-ta', fields:[
+    {id:'type', label:'種別',          def:'テーパー旋削', type:'select', opts:['テーパー旋削','R面取り','C面取り']},
+    {id:'d1',   label:'開始径(mm)',    def:50, type:'number', step:.1},
+    {id:'d2',   label:'終了径(mm)',    def:40, type:'number', step:.1},
+    {id:'len',  label:'長さ/R値(mm)', def:20, type:'number', step:.1},
+    {id:'rpm',  label:'回転数(rpm)',   def:900,type:'number', auto:true},
+    {id:'feed', label:'送り(mm/rev)',  def:.15,type:'number', step:.01, auto:true},
+  ]},
+  dr:{name:'横穴ドリル', color:'sn-dr', fields:[
+    {id:'d',    label:'ドリル径(mm)', def:8,  type:'number', step:.1},
+    {id:'dep',  label:'深さ(mm)',      def:20, type:'number', step:.1},
+    {id:'num',  label:'穴数',           def:4,  type:'number'},
+    {id:'pcd',  label:'PCD(mm)',       def:60, type:'number', step:.1},
+    {id:'type', label:'穴種別',         def:'等分割穴', type:'select', opts:['端面穴','側面穴(Cアクシス)','等分割穴']},
+    {id:'rpm',  label:'回転数(rpm)',   def:1200,type:'number', auto:true},
+    {id:'feed', label:'送り(mm/rev)',  def:.1, type:'number', step:.01, auto:true},
+  ]},
+  kw:{name:'キー溝',     color:'sn-kw', fields:[
+    {id:'w',  label:'溝幅(mm)',  def:6,  type:'number', step:.1},
+    {id:'d',  label:'溝深さ(mm)',def:3,  type:'number', step:.1},
+    {id:'l',  label:'溝長さ(mm)',def:40, type:'number', step:.1},
+    {id:'td', label:'工具径(mm)',def:6,  type:'number', step:.1},
+    {id:'rpm',label:'回転数(rpm)',def:800,type:'number', auto:true},
+    {id:'feed',label:'送り(mm/min)',def:100,type:'number', auto:true},
+  ]},
+  cf:{name:'突切り',     color:'sn-cf', fields:[
+    {id:'x',   label:'切断外径(mm)',def:30,  type:'number', step:.1},
+    {id:'z',   label:'Z位置(mm)',  def:-80, type:'number'},
+    {id:'rpm', label:'回転数(rpm)',def:500, type:'number', auto:true},
+    {id:'feed',label:'送り(mm/rev)',def:.04,type:'number', step:.01, auto:true},
+  ]},
+};
+
+let steps = [];
+let idCnt = 0;
+let lastGcode = '';
+
+// ===== 工程操作 =====
+function addStep(type) {
+  const def = DEFS[type]; if (!def) return;
+  const params = {};
+  def.fields.forEach(f => params[f.id] = f.def);
+  steps.push({id:++idCnt, type, params, open:true});
+  render();
+  applyAutoAll();
+}
+
+function removeStep(id) { steps = steps.filter(s=>s.id!==id); render(); }
+function moveStep(id, dir) {
+  const i = steps.findIndex(s=>s.id===id); if(i<0) return;
+  const ni = i+dir;
+  if(ni<0||ni>=steps.length) return;
+  [steps[i],steps[ni]] = [steps[ni],steps[i]];
+  render();
+}
+function toggleOpen(id) {
+  const s = steps.find(s=>s.id===id); if(s) s.open=!s.open; render();
+}
+function clearAll() {
+  if(steps.length && !confirm('全工程を削除しますか？')) return;
+  steps=[]; render();
+}
+function updateParam(id, key, val) {
+  const s = steps.find(s=>s.id===id); if(!s) return;
+  s.params[key] = isNaN(val) ? val : (val===''?val:parseFloat(val)||0);
+  updatePreview();
+}
+
+// ===== 自動切削条件 =====
+function applyAutoAll() {
+  const mat=document.getElementById('q-mat').value;
+  const tm=document.getElementById('q-toolmat').value;
+  const td=parseFloat(document.getElementById('q-tooldia').value)||25;
+  const fin=document.getElementById('q-finish').value;
+  const c=calcConditions(mat,tm,td,fin); if(!c) return;
+
+  steps.forEach(s => {
+    const def=DEFS[s.type]; if(!def) return;
+    def.fields.forEach(f => {
+      if(!f.auto) return;
+      const el=document.getElementById(`sf-${s.id}-${f.id}`);
+      if(!el) return;
+      let val;
+      if(f.id==='rpm')  val=c.rpm;
+      else if(f.id==='feed') val=(f.label.includes('min')?c.feedMin:c.feed);
+      else if(f.id==='depth'||f.id==='ap') val=c.ap;
+      else if(f.id==='pass') val=fin==='仕上げ'?8:fin==='中削り'?6:5;
+      if(val!==undefined){el.value=val;el.classList.add('auto');s.params[f.id]=val;}
+    });
+  });
+  updatePreview();
+}
+
+// ===== レンダリング =====
+function render() {
+  const wrap = document.getElementById('steps-wrap');
+  document.getElementById('empty-hint').style.display = steps.length?'none':'block';
+  wrap.querySelectorAll('.step-card').forEach(e=>e.remove());
+
+  steps.forEach((s,idx) => {
+    const def = DEFS[s.type]; if(!def) return;
+    const card = document.createElement('div');
+    card.className = 'step-card' + (s.open?' open':'');
+    card.id = 'qsc-'+s.id;
+
+    const summary = getSummary(s);
+    const fieldsHtml = def.fields.map(f => {
+      if(f.type==='select') {
+        const opts = f.opts.map(o=>`<option ${o===s.params[f.id]?'selected':''}>${o}</option>`).join('');
+        return `<div class="inline-field"><label>${f.label}</label><select id="sf-${s.id}-${f.id}" onchange="updateParam(${s.id},'${f.id}',this.value)">${opts}</select></div>`;
+      }
+      const autoClass = f.auto ? 'auto' : '';
+      return `<div class="inline-field"><label>${f.label}</label><input type="number" id="sf-${s.id}-${f.id}" value="${s.params[f.id]}" step="${f.step||1}" class="${autoClass}" oninput="updateParam(${s.id},'${f.id}',this.value)"></div>`;
+    }).join('');
+
+    card.innerHTML = `
+      <div class="step-head" onclick="toggleOpen(${s.id})">
+        <div class="step-no ${def.color}">${idx+1}</div>
+        <div class="step-name">${def.name}</div>
+        <div class="step-summary">${summary}</div>
+        <div class="step-acts">
+          <button class="sact up" onclick="event.stopPropagation();moveStep(${s.id},-1)" title="上へ">↑</button>
+          <button class="sact dn" onclick="event.stopPropagation();moveStep(${s.id},+1)" title="下へ">↓</button>
+          <button class="sact" onclick="event.stopPropagation();removeStep(${s.id})" title="削除">✕</button>
+        </div>
+      </div>
+      <div class="step-body">
+        <div class="inline-grid">${fieldsHtml}</div>
+      </div>`;
+    wrap.appendChild(card);
+  });
+
+  document.getElementById('preview-wrap').style.display = steps.length?'block':'none';
+  updatePreview();
+}
+
+function getSummary(s) {
+  const p=s.params;
+  switch(s.type) {
+    case 'od': return `φ${p.blank_d||'?'}→φ${p.fin_d||'?'} L${p.fin_l||'?'}`;
+    case 'id': return `φ${p.pre_d||'?'}→φ${p.fin_d||'?'} 深${p.dep||'?'}`;
+    case 'th': return `M${p.d||'?'}×P${p.pitch||'?'} L${p.len||'?'}`;
+    case 'gr': return `幅${p.w||'?'} 深${p.d||'?'} X${p.x||'?'}`;
+    case 'ta': return `φ${p.d1||'?'}→φ${p.d2||'?'} L${p.len||'?'}`;
+    case 'dr': return `φ${p.d||'?'} ${p.num||'?'}穴 深${p.dep||'?'}`;
+    case 'kw': return `幅${p.w||'?'} 深${p.d||'?'} L${p.l||'?'}`;
+    case 'cf': return `X${p.x||'?'} Z${p.z||'?'}`;
+    default: return '';
+  }
+}
+
+// ===== 断面プレビュー =====
+function updatePreview() {
+  const svg = document.getElementById('preview-svg');
+  if (!steps.length) { svg.innerHTML=''; return; }
+
+  const W=560, H=90, CY=45, margin=20;
+  let paths=[], dims=[];
+  let curX=margin, totalL=0;
+
+  // 全長を計算
+  steps.forEach(s=>{
+    const p=s.params;
+    if(s.type==='od'||s.type==='id') totalL+=parseFloat(p.fin_l)||0;
+    else if(s.type==='th') totalL+=parseFloat(p.len)||0;
+    else if(s.type==='ta') totalL+=parseFloat(p.len)||0;
+    else if(s.type==='gr') totalL+=parseFloat(p.w)||3;
+    else if(s.type==='cf') totalL+=5;
+  });
+
+  const scale = totalL>0 ? (W-margin*2)/totalL : 1;
+
+  const colors={od:'#3B6D11',id:'#185FA5',th:'#854F0B',gr:'#993556',ta:'#534AB7',dr:'#0F6E56',kw:'#185FA5',cf:'#dc2626'};
+  const fills= {od:'#EAF3DE',id:'#E6F1FB',th:'#FAEEDA',gr:'#FBEAF0',ta:'#F5F3FF',dr:'#E1F5EE',kw:'#E6F1FB',cf:'#FEF2F2'};
+
+  let items=[];
+  steps.forEach(s=>{
+    const p=s.params;
+    let r=0, l=0;
+    if(s.type==='od'){r=(parseFloat(p.fin_d)||45)/2;l=parseFloat(p.fin_l)||80;}
+    else if(s.type==='id'){r=(parseFloat(p.fin_d)||25)/2;l=parseFloat(p.dep)||40;}
+    else if(s.type==='th'){r=(parseFloat(p.d)||20)/2;l=parseFloat(p.len)||30;}
+    else if(s.type==='ta'){r=(parseFloat(p.d1)||50)/2;l=parseFloat(p.len)||20;}
+    else if(s.type==='gr'){r=(parseFloat(p.x)||40)/2-parseFloat(p.d||5);l=parseFloat(p.w)||3;}
+    else if(s.type==='cf'){r=5;l=5;}
+    else{r=15;l=10;}
+    if(r<2)r=2;
+    items.push({type:s.type,r,l,color:colors[s.type],fill:fills[s.type]});
+  });
+
+  // 最大半径を求めてスケール
+  const maxR = Math.max(...items.map(i=>i.r), 1);
+  const rScale = Math.min((H/2-8)/maxR, 1.5);
+
+  let html='';
+  let px=margin;
+  items.forEach((item,idx)=>{
+    const pw=item.l*scale;
+    const pr=item.r*rScale;
+    const y1=CY-pr, y2=CY+pr;
+
+    if(item.type==='th') {
+      html+=`<rect x="${px}" y="${y1}" width="${pw}" height="${pr*2}" fill="${item.fill}" stroke="${item.color}" stroke-width="1"/>`;
+      // ねじ山
+      for(let xi=px;xi<px+pw-4;xi+=8){
+        html+=`<line x1="${xi}" y1="${y1}" x2="${xi+4}" y2="${y1+3}" stroke="${item.color}" stroke-width=".7"/>`;
+        html+=`<line x1="${xi}" y1="${y2}" x2="${xi+4}" y2="${y2-3}" stroke="${item.color}" stroke-width=".7"/>`;
+      }
+    } else if(item.type==='gr') {
+      html+=`<rect x="${px}" y="${y1}" width="${pw}" height="${pr*2}" fill="${item.fill}" stroke="${item.color}" stroke-width="1" stroke-dasharray="2 2"/>`;
+    } else {
+      html+=`<rect x="${px}" y="${y1}" width="${pw}" height="${pr*2}" fill="${item.fill}" stroke="${item.color}" stroke-width="1"/>`;
+    }
+
+    // 寸法ラベル（交互に上下）
+    if(idx%2===0) {
+      html+=`<text x="${px+pw/2}" y="${y1-3}" text-anchor="middle" font-size="8" fill="${item.color}">${getSummary({type:item.type,params:steps[idx].params})}</text>`;
+    } else {
+      html+=`<text x="${px+pw/2}" y="${y2+9}" text-anchor="middle" font-size="8" fill="${item.color}">${getSummary({type:item.type,params:steps[idx].params})}</text>`;
+    }
+    px+=pw;
+  });
+
+  // 中心線
+  html=`<line x1="${margin}" y1="${CY}" x2="${px}" y2="${CY}" stroke="#94a3b8" stroke-width=".5" stroke-dasharray="4 3"/>` + html;
+  svg.innerHTML=html;
+}
+
+// ===== Gコード生成 =====
+function generateAll() {
+  if(!steps.length){showToast('工程を追加してください','error');return;}
+  const progNo=parseInt(document.getElementById('q-progno').value)||1000;
+  const mat=document.getElementById('q-mat').value;
+  const subStart=9001;
+
+  let mainLines=[`%`,`O${String(progNo).padStart(4,'0')}`,`(寸法入力補助モード生成 / ${mat})`,`(工程数: ${steps.length})`,`G28 U0. W0.`,`G40 G80`];
+  let subs=[];
+  let expLines=[];
+  let prevTool=null;
+  const toolMap={od:'T0101',id:'T0303',th:'T0505',gr:'T0404',ta:'T0101',dr:'T0606',kw:'T0707',cf:'T0404'};
+
+  steps.forEach((s,i)=>{
+    const p=s.params;
+    const def=DEFS[s.type];
+    const subNo=subStart+i;
+    const tool=toolMap[s.type]||'T0101';
+    let subLines=[`O${subNo} (${def.name})`];
+
+    if(prevTool&&prevTool!==tool) mainLines.push(`(工具交換: ${prevTool}→${tool})`,`T0000`,`M06`,`${tool}`);
+    prevTool=tool;
+    if(s.params._comment) mainLines.push(`(${s.params._comment})`);
+    mainLines.push(`(工程${i+1}: ${def.name} ${getSummary(s)})`,`M98 P${subNo}`);
+
+    // サブプログラム生成
+    const rpm=parseFloat(p.rpm)||1000, feed=parseFloat(p.feed)||.2;
+    switch(s.type){
+      case 'od':{
+        const bd=parseFloat(p.blank_d)||50,fd=parseFloat(p.fin_d)||45,fl=parseFloat(p.fin_l)||80,dep=parseFloat(p.depth)||1.5;
+        const ps=Math.max(1,Math.ceil((bd-fd)/2/dep));
+        subLines.push(`G96 S${rpm} M03`,`${tool} M08`,`G00 X${bd+2}. Z2.`);
+        for(let j=1;j<=ps;j++){const cx=Math.max(fd,(bd-dep*2*j)).toFixed(3);subLines.push(`G00 X${cx}`,`G01 Z-${fl}. F${feed}`,`G00 X${bd+2}.`,`Z2.`);}
+        subLines.push(`G00 X${fd}.`,`G01 Z-${fl}. F${(feed*.6).toFixed(3)}`,`G00 X${bd+5}. Z100.`,`M09`);
+        expLines.push(`工程${i+1} 外径: φ${bd}→${fd}mm L${fl}mm ${ps}パス`);break;}
+      case 'id':{
+        const pd=parseFloat(p.pre_d)||20,fd2=parseFloat(p.fin_d)||25,dep=parseFloat(p.dep)||40,ap=parseFloat(p.ap)||.5;
+        const ps=Math.max(1,Math.ceil((fd2-pd)/2/ap));
+        subLines.push(`G96 S${rpm} M03`,`${tool} M08`,`G00 X${pd-1}. Z2.`);
+        for(let j=1;j<=ps;j++){const cx=(pd+ap*2*j).toFixed(3);subLines.push(`G00 X${cx}`,`G01 Z-${dep}. F${feed}`,`G04 X0.3`,`G00 Z2.`);}
+        subLines.push(`G00 X${fd2}.`,`G01 Z-${dep}. F${(feed*.7).toFixed(3)}`,`G00 Z100.`,`M09`);
+        expLines.push(`工程${i+1} 内径: φ${pd}→${fd2}mm 深${dep}mm ${ps}パス`);break;}
+      case 'th':{
+        const d=parseFloat(p.d)||20,pitch=parseFloat(p.pitch)||1.5,len=parseFloat(p.len)||30,pass=parseFloat(p.pass)||5,cham=1.5;
+        const h=0.6495*pitch,ap2=(h/pass).toFixed(4);
+        subLines.push(`G97 S${rpm} M03`,`${tool} M08`,`G00 X${d+2}. Z5.`);
+        for(let j=1;j<=pass;j++){const cx=(d-ap2*2*j).toFixed(3);subLines.push(`G00 X${cx}`,`G32 Z-${(len+cham).toFixed(1)}. F${pitch}`,`G00 X${d+2}.`,`Z5.`);}
+        subLines.push(`G00 X${d+10}. Z100.`,`M09`);
+        expLines.push(`工程${i+1} ねじ: M${d}×P${pitch} L${len}mm ${pass}パス`);break;}
+      case 'gr':{
+        const gw=parseFloat(p.w)||3,gd=parseFloat(p.d)||5,gx=parseFloat(p.x)||40,gz=parseFloat(p.z)||-30;
+        const finX=(gx-gd*2).toFixed(3);
+        subLines.push(`G97 S${rpm} M03`,`${tool} M08`,`G00 X${gx+2}. Z${gz}.`,`G01 X${finX} F${feed}`,`G04 X0.5`,`G01 X${gx+2}.`);
+        if(gw>3)subLines.push(`Z${(gz+gw/2).toFixed(2)}.`,`G01 X${finX}`,`G00 X${gx+2}.`,`Z${(gz-gw/2).toFixed(2)}.`,`G01 X${finX}`,`G00 X${gx+2}.`);
+        subLines.push(`Z100.`,`M09`);
+        expLines.push(`工程${i+1} 溝: 幅${gw}mm 深${gd}mm`);break;}
+      case 'ta':{
+        const d1=parseFloat(p.d1)||50,d2=parseFloat(p.d2)||40,tl=parseFloat(p.len)||20;
+        subLines.push(`G96 S${rpm} M03`,`${tool} M08`,`G00 X${d1+2}. Z2.`,`G01 X${d1}. Z0. F${feed}`,`G01 X${d2}. Z-${tl}. F${feed}`,`G00 X${Math.max(d1,d2)+10}. Z100.`,`M09`);
+        expLines.push(`工程${i+1} テーパー: φ${d1}→φ${d2}mm`);break;}
+      case 'dr':{
+        const dia=parseFloat(p.d)||8,dep2=parseFloat(p.dep)||20,num=parseFloat(p.num)||4;
+        const div=360/num;
+        subLines.push(`G97 S${rpm} M03`,`${tool} M08`);
+        for(let j=0;j<num;j++)subLines.push(`G00 C${(div*j).toFixed(1)}`,`G83 Z-${dep2}. R2. Q${(dia*.3).toFixed(1)} F${feed}`,`G80`);
+        subLines.push(`G00 Z100.`,`M09`);
+        expLines.push(`工程${i+1} 横穴: φ${dia}mm×${num}穴`);break;}
+      case 'kw':{
+        const kw=parseFloat(p.w)||6,kd=parseFloat(p.d)||3,kl=parseFloat(p.l)||40,feedMin=parseFloat(p.feed)||100;
+        const ps=Math.ceil(kd/1.0);
+        subLines.push(`G97 S${rpm} M03`,`${tool} M06`,`G43 H07`,`G00 X0. Y0. Z5.`,`M08`);
+        for(let j=1;j<=ps;j++){const cz=(-kd/ps*j).toFixed(3);subLines.push(`G01 Z${cz} F${Math.round(feedMin*.3)}`,`G01 X${kl}. F${feedMin}`,`G00 Z5.`,`X0.`);}
+        subLines.push(`Z100.`,`M09`);
+        expLines.push(`工程${i+1} キー溝: 幅${kw}mm 深${kd}mm`);break;}
+      case 'cf':{
+        const x=parseFloat(p.x)||30,z=parseFloat(p.z)||-80;
+        subLines.push(`G97 S${rpm} M03`,`${tool} M08`,`G00 X${x+2}. Z${z}.`,`G01 X0. F${feed}`,`G04 X0.5`,`G00 X${x+5}. Z100.`,`M09`);
+        expLines.push(`工程${i+1} 突切り: X${x}mm`);break;}
+    }
+    subLines.push(`G28 U0. W0.`,`M99`);
+    subs.push(subLines.join('\n'));
+  });
+
+  mainLines.push(`G28 U0. W0.`,`M05`,`M30`,``,`(========= サブプログラム =========)`);
+  const full=[...mainLines,...subs,`%`].join('\n');
+  lastGcode=full;
+
+  // 表示
+  let n=1;
+  const html=full.split('\n').map(line=>{
+    const num=`<span class="lnum">${String(n++).padStart(4,' ')}</span>`;
+    let l=line.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+    if(l.startsWith('(')||l==='%')return num+`<span class="cm">${l}</span>`;
+    l=l.replace(/\b([GM]\d+)/g,(m,w)=>w.startsWith('G')?`<span class="gw">${w}</span>`:`<span class="mw">${w}</span>`);
+    l=l.replace(/([XZUWICKFSRCPQR])(-?[\d.]+)/g,(m,k,v)=>`${k}<span class="vl">${v}</span>`);
+    return num+l;
+  }).join('\n');
+
+  document.getElementById('out-area').innerHTML=`<div class="gcode">${html}</div>`;
+  document.getElementById('out-label').textContent=`O${progNo} — ${steps.length}工程 生成完了`;
+  showToast(`${steps.length}工程のGコードを生成しました`);
+}
+
+function copyOut(){if(!lastGcode){showToast('先に生成してください','error');return;}copyText(lastGcode);}
+function dlOut(){if(!lastGcode)return;downloadText(lastGcode,`O${document.getElementById('q-progno').value||1000}_quick.nc`);}
+function previewOut(){if(!lastGcode)return;sessionStorage.setItem('preview_gcode',lastGcode);sessionStorage.setItem('preview_source','寸法入力補助');window.open('preview.html','_blank');}
+function saveToLog(){
+  if(!lastGcode){showToast('先に生成してください','error');return;}
+  const p=prompt('品番:','');if(!p)return;
+  LOG_DB.add({partNo:p,procName:`複合加工 ${steps.length}工程`,material:document.getElementById('q-mat').value,gcode:lastGcode,memo:'寸法入力補助モードで生成'});
+  showToast('実績に保存しました');
+}
+
+document.addEventListener('DOMContentLoaded',()=>{ render(); });
+</script>
+</body>
+</html>

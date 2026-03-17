@@ -184,6 +184,7 @@ function showDetail(id) {
 function sendToPreview(id) {
   const l = LOG_DB.getAll().find(l=>l.id===id); if(!l||!l.gcode) return;
   sessionStorage.setItem('preview_gcode', l.gcode);
+  sessionStorage.setItem('preview_source', '加工実績');
   window.open('preview.html','_blank');
 }
 

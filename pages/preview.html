@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>パスプレビュー | NC Suite</title>
+<link rel="stylesheet" href="../css/common.css">
+<style>
+.preview-layout{display:grid;grid-template-columns:300px 1fr;gap:0;height:calc(100vh - 54px)}
+.preview-panel{background:var(--bg1);border-right:1px solid var(--border);overflow-y:auto;padding:16px}
+#canvas-wrap{background:#111318;position:relative;overflow:hidden}
+#three-canvas{width:100%;height:100%;display:block}
+.ctrl-bar{position:absolute;top:12px;right:12px;display:flex;flex-direction:column;gap:6px}
+.ctrl-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;width:36px;height:36px;border-radius:6px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.ctrl-btn:hover{background:rgba(255,255,255,.25)}
+.axis-legend{position:absolute;bottom:12px;left:12px;font-size:11px;color:rgba(255,255,255,.6);font-family:var(--mono);line-height:1.8}
+.parse-info{position:absolute;bottom:12px;right:12px;font-size:11px;color:rgba(255,255,255,.5);font-family:var(--mono);text-align:right}
+.seg-item{font-size:11px;font-family:var(--mono);padding:5px 8px;border-radius:4px;margin-bottom:3px;cursor:pointer;transition:background .1s;color:var(--text2)}
+.seg-item:hover{background:var(--bg2)}
+.seg-item.rapid{color:#60a5fa}.seg-item.cut{color:#4ade80}.seg-item.arc{color:#f59e0b}
+.speed-legend{display:flex;gap:12px;font-size:11px;margin-top:10px}
+.leg-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:middle}
+@media(max-width:768px){.preview-layout{grid-template-columns:1fr;grid-template-rows:280px 1fr}}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a class="nav-logo" href="../index.html">⚙ NC Suite</a>
+  <div class="nav-links">
+    <a class="nav-link" href="../index.html">🏠 <span>ホーム</span></a>
+    <a class="nav-link" href="gcode.html">📝 <span>Gコード生成</span></a>
+    <a class="nav-link" href="compound.html">🔗 <span>複合加工</span></a>
+    <a class="nav-link" href="quick.html">⚡ <span>寸法入力補助</span></a>
+    <a class="nav-link" href="tools.html">🔧 <span>工具登録</span></a>
+    <a class="nav-link" href="log.html">📋 <span>加工実績</span></a>
+    <a class="nav-link" href="calc.html">🧮 <span>計算ツール</span></a>
+    <a class="nav-link" href="knowledge.html">💡 <span>ナレッジ</span></a>
+    <a class="nav-link" href="drawing.html">📐 <span>図面読込</span></a>
+    <a class="nav-link active" href="preview.html">🖥 <span>パスプレビュー</span></a>
+  </div>
+</nav>
+
+<div class="preview-layout">
+  <!-- 左パネル -->
+  <div class="preview-panel">
+    <div id="back-btn-wrap" style="display:none;margin-bottom:10px">
+      <button class="btn btn-full" id="back-btn" onclick="goBack()">← 元の画面に戻る</button>
+    </div>
+    <div style="font-size:13px;font-weight:700;margin-bottom:10px">📋 Gコード入力</div>
+    <textarea id="gcode-input" rows="12" style="width:100%;font-family:var(--mono);font-size:11px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:10px;color:var(--text);resize:vertical;line-height:1.7" placeholder="GコードをここにペーストしてEnter&#10;&#10;例:&#10;G00 X50. Z2.&#10;G01 X45. Z-80. F0.2&#10;G01 X45. Z-100.&#10;G00 X60. Z100."></textarea>
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <button class="btn btn-primary" style="flex:1" onclick="parseAndRender()">▶ 3D表示</button>
+      <button class="btn" onclick="clearAll()">クリア</button>
+    </div>
+
+    <div style="margin-top:16px;font-size:12px;font-weight:700;color:var(--text2)">サンプルコード</div>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">
+      <button class="btn btn-sm" onclick="loadSample('od')">外径旋削サンプル</button>
+      <button class="btn btn-sm" onclick="loadSample('thread')">ねじ切りサンプル</button>
+      <button class="btn btn-sm" onclick="loadSample('compound')">複合加工サンプル</button>
+    </div>
+
+    <div style="margin-top:16px;font-size:12px;font-weight:700;color:var(--text2)">表示設定</div>
+    <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+        <input type="checkbox" id="show-rapid" checked onchange="updateVisibility()"> 早送り（青）を表示
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+        <input type="checkbox" id="show-cut" checked onchange="updateVisibility()"> 切削（緑）を表示
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+        <input type="checkbox" id="show-workpiece" checked onchange="updateVisibility()"> 素材形状を表示
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+        <input type="checkbox" id="show-grid" checked onchange="updateVisibility()"> グリッド表示
+      </label>
+    </div>
+
+    <div class="speed-legend">
+      <div><span class="leg-dot" style="background:#3b82f6"></span>早送り(G00)</div>
+      <div><span class="leg-dot" style="background:#22c55e"></span>切削(G01)</div>
+      <div><span class="leg-dot" style="background:#f59e0b"></span>円弧(G02/03)</div>
+    </div>
+
+    <div id="seg-list" style="margin-top:14px;max-height:200px;overflow-y:auto"></div>
+    <div id="parse-stats" style="margin-top:10px;font-size:11px;color:var(--text3)"></div>
+  </div>
+
+  <!-- 3Dビュー -->
+  <div id="canvas-wrap">
+    <canvas id="three-canvas"></canvas>
+    <div class="ctrl-bar">
+      <button class="ctrl-btn" onclick="resetCamera()" title="視点リセット">⟳</button>
+      <button class="ctrl-btn" onclick="setView('top')" title="上面">T</button>
+      <button class="ctrl-btn" onclick="setView('front')" title="正面">F</button>
+      <button class="ctrl-btn" onclick="setView('side')" title="側面">S</button>
+    </div>
+    <div class="axis-legend">X：赤　Y：緑　Z：青<br>ドラッグ：回転　ホイール：ズーム</div>
+    <div class="parse-info" id="parse-info"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../js/common.js"></script>
+<script>
+// ===== Three.js セットアップ =====
+const canvas = document.getElementById('three-canvas');
+const wrap   = document.getElementById('canvas-wrap');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:false});
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.shadowMap.enabled = true;
+renderer.setClearColor(0x111318, 1);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 2000);
+camera.position.set(80, 60, 120);
+camera.lookAt(0, 0, 0);
+
+// ライト
+const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+dirLight.position.set(100, 100, 50);
+scene.add(ambient, dirLight);
+
+// 軸
+const axesHelper = new THREE.AxesHelper(30);
+scene.add(axesHelper);
+
+// グリッド
+const grid = new THREE.GridHelper(200, 20, 0x2a2d36, 0x2a2d36);
+grid.rotation.x = Math.PI / 2;
+scene.add(grid);
+
+// オブジェクト管理
+let rapidLines = null, cutLines = null, arcLines = null, workpiece = null;
+
+// マウス操作（簡易オービット）
+let isDragging=false, prevX=0, prevY=0, theta=30, phi=60, radius=180;
+canvas.addEventListener('mousedown', e=>{isDragging=true;prevX=e.clientX;prevY=e.clientY});
+canvas.addEventListener('mousemove', e=>{
+  if(!isDragging) return;
+  theta -= (e.clientX-prevX)*0.4;
+  phi   -= (e.clientY-prevY)*0.4;
+  phi = Math.max(5, Math.min(175, phi));
+  prevX=e.clientX; prevY=e.clientY;
+  updateCameraPos();
+});
+canvas.addEventListener('mouseup', ()=>isDragging=false);
+canvas.addEventListener('mouseleave', ()=>isDragging=false);
+canvas.addEventListener('wheel', e=>{
+  radius = Math.max(20, Math.min(600, radius + e.deltaY*0.3));
+  updateCameraPos(); e.preventDefault();
+},{passive:false});
+
+// タッチ操作
+let lastTouchDist=0;
+canvas.addEventListener('touchstart', e=>{
+  if(e.touches.length===1){isDragging=true;prevX=e.touches[0].clientX;prevY=e.touches[0].clientY;}
+  if(e.touches.length===2){lastTouchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);}
+});
+canvas.addEventListener('touchmove', e=>{
+  if(e.touches.length===1&&isDragging){
+    theta-=(e.touches[0].clientX-prevX)*0.4;
+    phi  -=(e.touches[0].clientY-prevY)*0.4;
+    phi=Math.max(5,Math.min(175,phi));
+    prevX=e.touches[0].clientX;prevY=e.touches[0].clientY;
+    updateCameraPos();
+  }
+  if(e.touches.length===2){
+    const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    radius=Math.max(20,Math.min(600,radius-(d-lastTouchDist)*0.5));
+    lastTouchDist=d; updateCameraPos();
+  }
+  e.preventDefault();
+},{passive:false});
+canvas.addEventListener('touchend',()=>isDragging=false);
+
+function updateCameraPos() {
+  const t=theta*Math.PI/180, p=phi*Math.PI/180;
+  camera.position.set(radius*Math.sin(p)*Math.sin(t), radius*Math.cos(p), radius*Math.sin(p)*Math.cos(t));
+  camera.lookAt(scene.position);
+}
+
+function resetCamera() { theta=30; phi=60; radius=180; updateCameraPos(); }
+function setView(v) {
+  if(v==='top'){theta=0;phi=1;radius=160;}
+  else if(v==='front'){theta=0;phi=90;radius=160;}
+  else if(v==='side'){theta=90;phi=90;radius=160;}
+  updateCameraPos();
+}
+
+// リサイズ
+function resizeRenderer() {
+  const w=wrap.clientWidth, h=wrap.clientHeight;
+  renderer.setSize(w,h,false);
+  camera.aspect=w/h;
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resizeRenderer).observe(wrap);
+resizeRenderer();
+
+// アニメーションループ
+function animate() { requestAnimationFrame(animate); renderer.render(scene,camera); }
+animate();
+
+// ===== Gコードパーサー（G02/G03円弧補間・旋盤XZ正確変換）=====
+function parseGcode(src) {
+  const lines = src.split('\n');
+  const segs = [];
+  let pos = {x:0, z:0};  // x=半径値, z=軸方向
+  let isRapid = false;
+  let feedRate = 0;
+  let absMode = true;
+  let currentG = 1; // 最後に指定されたGモード
+
+  for (const rawLine of lines) {
+    const line = rawLine.replace(/\(.*?\)/g,'').trim().toUpperCase();
+    if (!line || line.startsWith('%') || line.startsWith(';')) continue;
+
+    const tok = (k) => { const m=line.match(new RegExp('(?<![A-Z])'+k+'(-?[\\d.]+)')); return m?parseFloat(m[1]):null; };
+
+    if (line.includes('G90')) absMode=true;
+    if (line.includes('G91')) absMode=false;
+
+    const g=tok('G');
+    const x=tok('X'); const z=tok('Z');
+    const i=tok('I'); const k2=tok('K'); // 円弧中心オフセット
+    const r=tok('R'); // 円弧半径指定
+    const f=tok('F');
+    if (f!==null) feedRate=f;
+    if (g!==null) currentG=g;
+    if (g===0) isRapid=true;
+    if (g===1||g===2||g===3) isRapid=false;
+
+    // 旋盤座標変換：X=直径→半径, Z=軸
+    const nx = x!==null ? (absMode ? x/2 : pos.x+x/2) : pos.x;
+    const nz = z!==null ? (absMode ? z   : pos.z+z)   : pos.z;
+
+    if (x!==null || z!==null) {
+      const type = currentG===2?'arc_cw': currentG===3?'arc_ccw': (isRapid||currentG===0)?'rapid':'cut';
+
+      if ((currentG===2||currentG===3) && (nx!==pos.x || nz!==pos.z)) {
+        // G02/G03: 円弧補間 → 点列に分解
+        const arcPts = buildArcPoints(pos.x, pos.z, nx, nz, i, k2, r, currentG===3);
+        for (let ai=0; ai<arcPts.length-1; ai++) {
+          segs.push({type, from:{x:arcPts[ai][0],z:arcPts[ai][1]}, to:{x:arcPts[ai+1][0],z:arcPts[ai+1][1]}, feed:feedRate});
+        }
+      } else {
+        segs.push({ type, from:{x:pos.x,z:pos.z}, to:{x:nx,z:nz}, feed:feedRate });
+      }
+      pos.x=nx; pos.z=nz;
+    }
+  }
+  return segs;
+}
+
+// 円弧を点列に変換（旋盤XZ平面）
+function buildArcPoints(sx, sz, ex, ez, iOff, kOff, rVal, ccw) {
+  let cx, cz;
+  if (rVal !== null && rVal !== undefined) {
+    // R指定の場合
+    const d = Math.sqrt((ex-sx)**2+(ez-sz)**2);
+    const h = Math.sqrt(Math.max(0, rVal**2 - (d/2)**2));
+    const mx=(sx+ex)/2, mz=(sz+ez)/2;
+    const nx2=-(ez-sz)/d, nz2=(ex-sx)/d;
+    const sign = ccw ? -1 : 1;
+    cx=mx+sign*h*nx2; cz=mz+sign*h*nz2;
+  } else {
+    cx = sx + (iOff||0)/2; // I=X方向オフセット（直径→半径）
+    cz = sz + (kOff||0);
+  }
+  const startAngle = Math.atan2(sz-cz, sx-cx);
+  const endAngle   = Math.atan2(ez-cz, ex-cx);
+  let sweep = endAngle - startAngle;
+  if (ccw && sweep<0) sweep += 2*Math.PI;
+  if (!ccw && sweep>0) sweep -= 2*Math.PI;
+  const steps = Math.max(8, Math.ceil(Math.abs(sweep)*8));
+  const pts = [];
+  for (let i=0;i<=steps;i++) {
+    const a = startAngle + sweep*(i/steps);
+    const R = Math.sqrt((sx-cx)**2+(sz-cz)**2);
+    pts.push([cx+R*Math.cos(a), cz+R*Math.sin(a)]);
+  }
+  return pts;
+}
+
+// 回転体ジオメトリを生成（旋盤の加工後形状）
+function buildLatheGeometry(segs) {
+  const profile = [];
+  let minZ=Infinity, maxZ=-Infinity, maxR=0;
+  segs.forEach(s => {
+    minZ=Math.min(minZ,s.from.z,s.to.z);
+    maxZ=Math.max(maxZ,s.from.z,s.to.z);
+    maxR=Math.max(maxR,s.from.x,s.to.x);
+  });
+  if (maxR<0.5) return null;
+
+  // 切削パスのみから外形プロファイルを抽出
+  const cutSegs = segs.filter(s=>s.type==='cut'||s.type.startsWith('arc'));
+  if (cutSegs.length < 2) return null;
+
+  // Z方向に分割してプロファイル点を収集
+  const profileMap = new Map();
+  cutSegs.forEach(s => {
+    [[s.from.x,s.from.z],[s.to.x,s.to.z]].forEach(([r,z]) => {
+      const zKey = Math.round(z*10);
+      if (!profileMap.has(zKey) || profileMap.get(zKey) < r) profileMap.set(zKey, r);
+    });
+  });
+
+  // Three.js LatheGeometry用のVector2配列
+  const points = Array.from(profileMap.entries())
+    .sort((a,b)=>a[0]-b[0])
+    .map(([zk,r]) => new THREE.Vector2(Math.max(0.1,r), zk/10));
+
+  if (points.length < 2) return null;
+  try {
+    const geo = new THREE.LatheGeometry(points, 32);
+    // Y/Zを旋盤座標に合わせる
+    geo.rotateX(Math.PI/2);
+    return geo;
+  } catch(e) { return null; }
+}
+
+function buildLines(segs) {
+  const rapidPts=[], cutPts=[], arcPts=[];
+  for (const s of segs) {
+    const arr = s.type==='rapid'?rapidPts : s.type.startsWith('arc')?arcPts : cutPts;
+    // 旋盤の回転体表現: x=半径, 3D空間ではy=0のXZ平面に描画
+    arr.push(s.from.x, 0, s.from.z, s.to.x, 0, s.to.z);
+  }
+  const mkLine = (pts, color, width=1) => {
+    if (!pts.length) return null;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    return new THREE.LineSegments(geo, new THREE.LineBasicMaterial({color, linewidth:width}));
+  };
+  return {
+    rapid: mkLine(rapidPts, 0x3b82f6, 1),
+    cut:   mkLine(cutPts,   0x22c55e, 2),
+    arc:   mkLine(arcPts,   0xf59e0b, 2),
+  };
+}
+
+function buildWorkpiece(segs) {
+  // 回転体ジオメトリを優先、なければ素材円柱
+  const latheGeo = buildLatheGeometry(segs);
+  if (latheGeo) {
+    const mat = new THREE.MeshPhongMaterial({color:0x60a0d0, transparent:true, opacity:0.18, side:THREE.DoubleSide, wireframe:false});
+    const mesh = new THREE.Mesh(latheGeo, mat);
+    // ワイヤーフレームも重ねる
+    const wfMat = new THREE.MeshBasicMaterial({color:0x4080aa, wireframe:true, opacity:0.06, transparent:true});
+    const wfMesh = new THREE.Mesh(latheGeo, wfMat);
+    const group = new THREE.Group();
+    group.add(mesh); group.add(wfMesh);
+    return group;
+  }
+  // フォールバック: 素材円柱
+  let maxR=0, minZ=0, maxZ=0;
+  for (const s of segs) {
+    maxR=Math.max(maxR,Math.abs(s.from.x),Math.abs(s.to.x));
+    minZ=Math.min(minZ,s.from.z,s.to.z);
+    maxZ=Math.max(maxZ,s.from.z,s.to.z);
+  }
+  if (maxR < 1) return null;
+  const r = maxR + 3;
+  const len = Math.max(10, maxZ - minZ + 10);
+  const geo = new THREE.CylinderGeometry(r, r, len, 32, 1, true);
+  const mat = new THREE.MeshPhongMaterial({color:0xaabbcc, transparent:true, opacity:0.15, side:THREE.DoubleSide});
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.rotation.x = Math.PI/2;
+  mesh.position.z = (minZ+maxZ)/2;
+  return mesh;
+}
+
+function parseAndRender() {
+  const src = document.getElementById('gcode-input').value;
+  if (!src.trim()) { showToast('Gコードを入力してください','error'); return; }
+
+  // 古いオブジェクト削除
+  [rapidLines, cutLines, arcLines, workpiece].forEach(o=>{ if(o) scene.remove(o); });
+
+  const segs = parseGcode(src);
+  if (!segs.length) { showToast('有効なXZ移動コードが見つかりません','error'); return; }
+
+  const built = buildLines(segs);
+  rapidLines=built.rapid; cutLines=built.cut; arcLines=built.arc;
+  [rapidLines,cutLines,arcLines].forEach(l=>{ if(l) scene.add(l); });
+
+  workpiece = buildWorkpiece(segs);
+  if (workpiece) scene.add(workpiece);
+
+  // セグメントリスト
+  const segEl = document.getElementById('seg-list');
+  segEl.innerHTML = segs.slice(0,50).map((s,i)=>
+    `<div class="seg-item ${s.type}" onclick="highlightSeg(${i})">
+      ${String(i+1).padStart(3,' ')} ${s.type.padEnd(6,' ')} X${(s.to.x*2).toFixed(1)} Z${s.to.z.toFixed(1)}
+    </div>`
+  ).join('') + (segs.length>50?`<div style="font-size:11px;color:var(--text3);padding:4px 8px">...他${segs.length-50}行</div>`:'');
+
+  document.getElementById('parse-stats').textContent = `解析: ${segs.length}セグメント / 早送り:${segs.filter(s=>s.type==='rapid').length} 切削:${segs.filter(s=>s.type==='cut').length}`;
+  document.getElementById('parse-info').textContent = `${segs.length} segments`;
+
+  // カメラ自動フィット
+  let maxR=0, maxZ=0;
+  segs.forEach(s=>{ maxR=Math.max(maxR,Math.abs(s.to.x),Math.abs(s.from.x)); maxZ=Math.max(maxZ,Math.abs(s.to.z),Math.abs(s.from.z)); });
+  radius = Math.max(80, Math.max(maxR,maxZ)*3);
+  updateCameraPos();
+  updateVisibility();
+}
+
+function updateVisibility() {
+  if(rapidLines) rapidLines.visible = document.getElementById('show-rapid').checked;
+  if(cutLines)   cutLines.visible   = document.getElementById('show-cut').checked;
+  if(arcLines)   arcLines.visible   = true;
+  if(workpiece)  workpiece.visible  = document.getElementById('show-workpiece').checked;
+  grid.visible = document.getElementById('show-grid').checked;
+}
+
+function clearAll() {
+  [rapidLines,cutLines,arcLines,workpiece].forEach(o=>{if(o)scene.remove(o);});
+  rapidLines=cutLines=arcLines=workpiece=null;
+  document.getElementById('gcode-input').value='';
+  document.getElementById('seg-list').innerHTML='';
+  document.getElementById('parse-stats').textContent='';
+  document.getElementById('parse-info').textContent='';
+}
+
+const SAMPLES = {
+  od:`G28 U0. W0.
+G96 S1000 M03
+T0101 M08
+G00 X52. Z2.
+G01 X50. Z0. F0.2
+G01 X50. Z-80.
+G00 X52. Z2.
+G00 X45. Z2.
+G01 X45. Z-80. F0.15
+G00 X60. Z100.
+M05 M09`,
+  thread:`G97 S500 M03
+T0505 M08
+G00 X22. Z5.
+G00 X19.4 Z5.
+G32 Z-32. F1.5
+G00 X22.
+Z5.
+G00 X18.8
+G32 Z-32. F1.5
+G00 X22.
+Z5.
+G00 X18.4
+G32 Z-32. F1.5
+G00 X22. Z100.`,
+  compound:`(工程1: 外径)
+G96 S1000 M03
+T0101 M08
+G00 X52. Z2.
+G01 X50. Z0. F0.2
+G01 X40. Z-30.
+G01 X40. Z-60.
+G00 X52. Z2.
+(工程2: ねじ切り)
+G97 S500 M03
+T0505
+G00 X22. Z5.
+G00 X19.4
+G32 Z-25. F1.5
+G00 X22. Z5.
+G00 X18.8
+G32 Z-25. F1.5
+G00 X22. Z100.
+(工程3: 溝)
+G97 S600 M03
+T0404
+G00 X42. Z-55.
+G01 X34. F0.05
+G00 X42.
+Z100.`
+};
+
+function loadSample(key) {
+  document.getElementById('gcode-input').value = SAMPLES[key]||'';
+  parseAndRender();
+}
+
+function goBack() {
+  if (window.opener && !window.opener.closed) {
+    window.opener.focus();
+    window.close();
+  } else {
+    history.back();
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // 呼び出し元ページが記録されていれば戻るボタンを表示
+  const source = sessionStorage.getItem('preview_source');
+  if (source) {
+    const btn = document.getElementById('back-btn');
+    btn.textContent = `← ${source}に戻る`;
+    document.getElementById('back-btn-wrap').style.display = 'block';
+    sessionStorage.removeItem('preview_source');
+  }
+
+  const code = sessionStorage.getItem('preview_gcode');
+  if (code) {
+    document.getElementById('gcode-input').value = code;
+    sessionStorage.removeItem('preview_gcode');
+    parseAndRender();
+  } else {
+    loadSample('od');
+  }
+});
+</script>
+</body>
+</html>

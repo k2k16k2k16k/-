@@ -325,7 +325,7 @@ function buildAll(){
 function sOut(tab,btn){document.querySelectorAll('.out-tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');document.getElementById('out-gcode').style.display=tab==='gcode'?'flex':'none';document.getElementById('out-exp').style.display=tab==='exp'?'block':'none';}
 function doCopy(){if(!lastGcode){showToast('先に生成してください','error');return;}copyText(lastGcode);}
 function doDL(){if(!lastGcode){showToast('先に生成してください','error');return;}downloadText(lastGcode,`O${document.getElementById('prog-no').value||1000}_compound.nc`);}
-function doPreview(){if(!lastGcode){showToast('先に生成してください','error');return;}sessionStorage.setItem('preview_gcode',lastGcode);window.open('preview.html','_blank');}
+function doPreview(){if(!lastGcode){showToast('先に生成してください','error');return;}sessionStorage.setItem('preview_gcode',lastGcode);sessionStorage.setItem('preview_source','複合加工');window.open('preview.html','_blank');}
 function saveToLog(){if(!lastGcode){showToast('先に生成してください','error');return;}const p=prompt('品番:','');if(!p)return;LOG_DB.add({partNo:p,procName:'複合加工 '+steps.length+'工程',material:document.getElementById('mat-global').value,gcode:lastGcode,memo:'複合加工ビルダーで生成'});showToast('実績に保存しました');}
 
 document.addEventListener('DOMContentLoaded',render);
