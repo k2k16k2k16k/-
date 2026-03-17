@@ -115,6 +115,14 @@ body{margin:0}
         <option value="A2017">A2017</option><option value="A5052">A5052</option><option value="A6061">A6061</option>
       </select>
     </div>
+    <div class="field"><label>工具材種</label>
+      <select id="toolmat-global">
+        <option>超硬</option><option>サーメット</option><option>CBN</option><option>ハイス</option>
+      </select>
+    </div>
+    <div class="field"><label>工具径(mm)</label>
+      <input type="number" id="tooldia-global" value="25" step="0.5" style="width:70px">
+    </div>
     <div class="field"><label>工具交換</label>
       <select id="tc-mode" onchange="render()">
         <option value="auto">自動(M06)</option><option value="manual">手動(コメント)</option><option value="none">なし</option>
@@ -192,7 +200,7 @@ function cdrop(e,tid){
   if(!dragSrc||dragSrc===tid)return;
   const si=steps.findIndex(s=>s.id===dragSrc);const ti=steps.findIndex(s=>s.id===tid);const c=document.getElementById('sc-'+tid);const before=e.clientY<c.getBoundingClientRect().top+c.offsetHeight/2;const[m]=steps.splice(si,1);const ni=steps.findIndex(s=>s.id===tid);steps.splice(before?ni:ni+1,0,m);render();dragSrc=null;
 }
-function mkStep(t){return{id:++idCnt,type:t,params:JSON.parse(JSON.stringify(DEF_P[t]||{})),comment:'',expanded:true};}
+function mkStep(t){return{id:++idCnt,type:t,params:JSON.parse(JSON.stringify(DEF_P[t]||{})),comment:'',finish:'中削り',expanded:true};}
 function addStep(t){steps.push(mkStep(t));render();}
 function removeStep(id){steps=steps.filter(s=>s.id!==id);render();}
 function clearAll(){if(steps.length&&!confirm('全工程を削除しますか？'))return;steps=[];render();}
@@ -254,12 +262,55 @@ function render(){
       </div>
       <div class="sc-body">
         ${getForm(s)}
-        <div class="field" style="margin-top:6px"><label>コメント（プログラム内に挿入）</label>
-          <input type="text" id="cmt-${s.id}" value="${s.comment}" placeholder="例: 外径荒削り後R注意" style="font-size:12px;padding:5px 7px" oninput="steps.find(x=>x.id==${s.id}).comment=this.value">
+        <div style="display:flex;align-items:flex-end;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <div class="field" style="margin:0;min-width:100px">
+            <label style="font-size:10px">仕上げ区分</label>
+            <select id="fin-${s.id}" style="font-size:12px;padding:4px 6px" onchange="steps.find(x=>x.id==${s.id}).finish=this.value">
+              ${['荒削り','中削り','仕上げ'].map(f=>`<option${f===s.finish?' selected':''}>${f}</option>`).join('')}
+            </select>
+          </div>
+          <button class="btn btn-sm" style="font-size:11px;white-space:nowrap" onclick="autoCalcStep(${s.id})">⚡ 自動計算</button>
+          <div class="field" style="margin:0;flex:1;min-width:150px">
+            <label style="font-size:10px">コメント</label>
+            <input type="text" id="cmt-${s.id}" value="${s.comment}" placeholder="例: 外径荒削り後R注意" style="font-size:12px;padding:4px 7px" oninput="steps.find(x=>x.id==${s.id}).comment=this.value">
+          </div>
         </div>
       </div>`;
     area.appendChild(card);
   });
+}
+
+// 切削条件自動計算
+function autoCalcStep(id) {
+  const s = steps.find(s => s.id === id); if (!s) return;
+  const mat     = document.getElementById('mat-global').value;
+  const toolMat = document.getElementById('toolmat-global').value;
+  const toolD   = parseFloat(document.getElementById('tooldia-global').value) || 25;
+  const finish  = document.getElementById(`fin-${id}`)?.value || s.finish || '中削り';
+  const c = calcConditions(mat, toolMat, toolD, finish);
+  if (!c) { showToast('この素材の切削データがありません', 'error'); return; }
+
+  // 旋削系はmm/rev送り、ミーリング系はmm/min送りを使い分け
+  const isMillProc = ['drill','keyway','mill'].includes(s.type);
+  const feedVal = isMillProc ? c.feedMin : c.feed;
+
+  const set = (key, val) => {
+    const el = document.getElementById(`p-${id}-${key}`);
+    if (!el) return;
+    el.value = val;
+    el.style.background = 'var(--green-l)';
+    setTimeout(() => el.style.background = '', 1500);
+    s.params[key] = val;
+  };
+
+  set('rpm', c.rpm);
+  set('feed', feedVal);
+  if (s.type === 'od')     set('depth', c.ap);
+  if (s.type === 'id')     set('ap', c.ap);
+  if (s.type === 'face')   set('depth', c.ap);
+  if (s.type === 'mill')   set('ap', c.ap);
+
+  showToast(`工程${steps.indexOf(s)+1}: ${c.rpm}rpm / F${feedVal} を設定しました`);
 }
 
 // Gコード生成
