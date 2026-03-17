@@ -727,7 +727,7 @@ function goToMapping() {
 }
 
 // ===== 加工種別定義 =====
-const PROC_LABELS = {od:'外径旋削', id:'内径ボーリング', thread:'ねじ切り', groove:'溝入れ', taper:'テーパー・R'};
+const PROC_LABELS = {od:'外径旋削', id:'内径ボーリング', thread:'ねじ切り', groove:'溝入れ', taper:'テーパー・R', face:'端面仕上げ'};
 
 const PROC_FIELDS = {
   od: [
@@ -755,6 +755,12 @@ const PROC_FIELDS = {
     {id:'d1',  label:'開始径 (mm)',      dimTypes:['直径','直径(テキスト)'], hint:'テーパー開始側の直径'},
     {id:'d2',  label:'終了径 (mm)',      dimTypes:['直径','直径(テキスト)'], hint:'テーパー終了側の直径'},
     {id:'len', label:'テーパー長さ (mm)', dimTypes:['水平長さ','垂直長さ'],   hint:'テーパー区間の長さ'},
+  ],
+  face: [
+    {id:'d',     label:'素材径 (mm)',        dimTypes:['直径','直径(テキスト)'], hint:'端面加工する外径'},
+    {id:'stock', label:'総取り代 (mm)',       dimTypes:[],                        hint:'端面から削る総量'},
+    {id:'fin',   label:'仕上げ取り代 (mm)',   dimTypes:[],                        hint:'最終パスに残す量 例:0.1'},
+    {id:'ffeed', label:'仕上げ送り(mm/rev)',  dimTypes:[],                        hint:'仕上げパスの送り'},
   ],
 };
 
@@ -1048,6 +1054,17 @@ function generateFromDXF() {
         allLines.push(`G96 S${rpm} M03`, `${tCmd} M08`,
           `G00 X${d1+2}. Z2.`,`G01 X${d1}. Z0. F${feed}`,`G01 X${d2}. Z-${tlen}. F${feed}`,
           `G00 X${Math.max(d1,d2)+10}. Z100.`,`M09`);
+        break;
+      }
+      case 'face': {
+        const dia=mfv('d',50), stock=mfv('stock',1), fin=mfv('fin',.1), ffeed=mfv('ffeed',.08);
+        const passes=Math.max(1,Math.ceil((stock-fin)/depth));
+        allLines.push(`G50 S3000`,`G96 S${rpm} M03`, `${tCmd} M08`);
+        for(let i=1;i<=passes;i++){
+          const cz=(stock-depth*i).toFixed(3);
+          allLines.push(`G00 X${dia+2}. Z${cz}.`,`G01 X-1. F${feed}`,`G00 Z${stock}.`);
+        }
+        allLines.push(`G00 X${dia+2}. Z0.`,`G01 X-1. F${ffeed}`,`G00 X${dia+10}. Z100.`,`M09`);
         break;
       }
     }

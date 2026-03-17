@@ -87,6 +87,7 @@ body{margin:0}
   <div class="pi" draggable="true" ondragstart="pdrag(event,'thread')"><div class="pi-icon">🔩</div><div><div class="pi-name">ねじ切り</div><div class="pi-tool">T0505</div></div></div>
   <div class="pi" draggable="true" ondragstart="pdrag(event,'groove')"><div class="pi-icon">📏</div><div><div class="pi-name">溝入れ・突切り</div><div class="pi-tool">T0404</div></div></div>
   <div class="pi" draggable="true" ondragstart="pdrag(event,'taper')"><div class="pi-icon">📐</div><div><div class="pi-name">テーパー・R</div><div class="pi-tool">T0101</div></div></div>
+  <div class="pi" draggable="true" ondragstart="pdrag(event,'face')"><div class="pi-icon">⬜</div><div><div class="pi-name">端面仕上げ</div><div class="pi-tool">T0101</div></div></div>
   <div class="palette-section">ミーリング</div>
   <div class="pi" draggable="true" ondragstart="pdrag(event,'drill')"><div class="pi-icon">🕳</div><div><div class="pi-name">横穴ドリル</div><div class="pi-tool">T0606</div></div></div>
   <div class="pi" draggable="true" ondragstart="pdrag(event,'keyway')"><div class="pi-icon">🔑</div><div><div class="pi-name">キー溝</div><div class="pi-tool">T0707</div></div></div>
@@ -156,6 +157,7 @@ const DEFS={
   thread:{name:'ねじ切り',    icon:'🔩',tool:'T0505',tname:'ねじチップ'},
   groove:{name:'溝入れ・突切り',icon:'📏',tool:'T0404',tname:'溝バイト'},
   taper: {name:'テーパー・R', icon:'📐',tool:'T0101',tname:'外径チップ'},
+  face:  {name:'端面仕上げ',  icon:'⬜',tool:'T0101',tname:'外径チップ'},
   drill: {name:'横穴ドリル',  icon:'🕳',tool:'T0606',tname:'ドリル'},
   keyway:{name:'キー溝',      icon:'🔑',tool:'T0707',tname:'エンドミル'},
   mill:  {name:'フライス',    icon:'⚙',tool:'T0808',tname:'フライス'},
@@ -167,6 +169,7 @@ const DEF_P={
   thread:{d:20,pitch:1.5,len:30,type:'外ねじ(G32)',rpm:500,pass:5,cham:1.5},
   groove:{w:3,d:5,x:40,z:-30,type:'外径溝入れ',rpm:600,feed:.05},
   taper:{type:'テーパー旋削',d1:50,d2:40,len:20,rpm:900,feed:.15},
+  face: {d:50,stock:1,depth:.5,fin:.1,rpm:1000,feed:.2,ffeed:.08},
   drill:{d:8,dep:20,num:4,pcd:60,type:'等分割穴',rpm:1200,feed:.1},
   keyway:{w:6,d:3,l:40,td:6,rpm:800,feed:100},
   mill:{type:'平面フライス',td:10,w:50,d:3,rpm:1500,feed:200,ap:1},
@@ -214,6 +217,7 @@ function getForm(step){
     case 'keyway':return`<div class="grid-3">${fHtml(sid+'-w','溝幅(mm)',p.w)}${fHtml(sid+'-d','溝深さ(mm)',p.d)}${fHtml(sid+'-l','溝長さ(mm)',p.l)}${fHtml(sid+'-td','工具径(mm)',p.td)}${fHtml(sid+'-rpm','rpm',p.rpm)}${fHtml(sid+'-feed','送り(mm/min)',p.feed)}</div>`;
     case 'mill':return`<div class="grid-3">${fHtml(sid+'-td','工具径(mm)',p.td)}${fHtml(sid+'-w','加工幅(mm)',p.w)}${fHtml(sid+'-d','加工深さ(mm)',p.d)}${fHtml(sid+'-rpm','rpm',p.rpm)}${fHtml(sid+'-feed','送り(mm/min)',p.feed)}${fHtml(sid+'-ap','切込み/パス',p.ap,'.5')}</div>`;
     case 'cutoff':return`<div class="grid-2">${fHtml(sid+'-x','切断外径(mm)',p.x)}${fHtml(sid+'-z','Z位置(mm)',p.z)}${fHtml(sid+'-rpm','rpm',p.rpm)}${fHtml(sid+'-feed','送り(mm/rev)',p.feed,'.01')}</div>`;
+    case 'face':return`<div class="grid-3">${fHtml(sid+'-d','素材径(mm)',p.d)}${fHtml(sid+'-stock','総取り代(mm)',p.stock,'.1')}${fHtml(sid+'-depth','粗削り切込み(mm)',p.depth,'.1')}${fHtml(sid+'-fin','仕上げ取り代(mm)',p.fin,'.05')}${fHtml(sid+'-rpm','rpm',p.rpm)}${fHtml(sid+'-feed','粗送り(mm/rev)',p.feed,'.01')}${fHtml(sid+'-ffeed','仕上げ送り(mm/rev)',p.ffeed,'.01')}</div>`;
     default:return'';
   }
 }
@@ -272,6 +276,7 @@ function genSub(s,subNo){
     case 'keyway':{const kw=gp(p,'w',6),kd=gp(p,'d',3),kl=gp(p,'l',40),rpm=gp(p,'rpm',800),feed=gp(p,'feed',100);const ps=Math.ceil(kd/1.0);lines=[`(キー溝 幅${kw}mm 深${kd}mm L${kl}mm)`,`G97 S${rpm} M03`,`T0707 M06`,`G43 H07`,`G00 X0. Y0. Z5.`,`M08`];for(let i=1;i<=ps;i++){const cz=(-kd/ps*i).toFixed(3);lines.push(`G01 Z${cz} F${Math.round(feed*.3)}`,`G01 X${kl}. F${feed}`,`G00 Z5.`,`X0.`);}lines.push(`Z100.`,`M09`);summary=`キー溝 幅${kw}mm 深${kd}mm`;break;}
     case 'mill':{const td=gp(p,'td',10),mw=gp(p,'w',50),md=gp(p,'d',3),rpm=gp(p,'rpm',1500),feed=gp(p,'feed',200),ap=gp(p,'ap',1);const ps=Math.ceil(md/ap);lines=[`(フライス 幅${mw}mm 深${md}mm)`,`G97 S${rpm} M03`,`T0808 M06`,`G43 H08`,`G00 X${-td}. Y0. Z5.`,`M08`];for(let i=1;i<=ps;i++){const cz=(-ap*i).toFixed(3);lines.push(`G01 Z${cz} F${Math.round(feed*.4)}`,`G01 X${mw+td}. F${feed}`,`G00 Z5.`,`X${-td}.`);}lines.push(`Z100.`,`M09`);summary=`フライス 幅${mw}mm 深${md}mm`;break;}
     case 'cutoff':{const x=gp(p,'x',30),z=gp(p,'z',-80),rpm=gp(p,'rpm',500),feed=gp(p,'feed',.04);lines=[`(突切り X${x}. Z${z}.)`,`G97 S${rpm} M03`,`T0404 M08`,`G00 X${x+2}. Z${z}.`,`G01 X0. F${feed}`,`G04 X0.5`,`G00 X${x+5}. Z100.`,`M09`];summary=`突切り X${x}mm`;break;}
+    case 'face':{const dia=gp(p,'d',50),stock=gp(p,'stock',1),dep=gp(p,'depth',.5),fin=gp(p,'fin',.1),rpm=gp(p,'rpm',1000),feed=gp(p,'feed',.2),ffeed=gp(p,'ffeed',.08);const ps=Math.max(1,Math.ceil((stock-fin)/dep));lines=[`(端面仕上げ φ${dia}mm 取り代${stock}mm)`,`G50 S3000`,`G96 S${rpm} M03`,`T0101 M08`];for(let i=1;i<=ps;i++){const cz=(stock-dep*i).toFixed(3);lines.push(`G00 X${dia+2}. Z${cz}.`,`G01 X-1. F${feed}`,`G00 Z${stock}.`);}lines.push(`G00 X${dia+2}. Z0.`,`G01 X-1. F${ffeed}`,`G00 X${dia+10}. Z100.`,`M09`);summary=`端面 φ${dia}mm ${ps}パス+仕上げ`;break;}
   }
   return{lines,summary};
 }
